@@ -79,8 +79,8 @@ export default function ResultsPage() {
           // 加重平均を計算
           let totalScore = 0
           if (scoresData && scoresData.length > 0) {
-            const totalWeight = scoresData.reduce((sum, s) => sum + (s.item?.weight || 0), 0)
-            const weightedScore = scoresData.reduce((sum, s) =>
+            const totalWeight = scoresData.reduce((sum, s: any) => sum + (s.item?.weight || 0), 0)
+            const weightedScore = scoresData.reduce((sum, s: any) =>
               sum + (s.score * (s.item?.weight || 0)), 0
             )
             totalScore = totalWeight > 0 ? weightedScore / totalWeight : 0
