@@ -140,7 +140,7 @@ export default function EvaluationsPage() {
 
       if (periodError) throw periodError
 
-      const templateItems = periodData?.evaluation_templates?.evaluation_items || []
+      const templateItems = (periodData?.evaluation_templates as any)?.evaluation_items || []
 
       // 既存のスコアを取得
       const { data: scoresData, error: scoresError } = await supabase
