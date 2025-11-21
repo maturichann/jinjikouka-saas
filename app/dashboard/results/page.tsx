@@ -51,15 +51,26 @@ export default function ResultsPage() {
 
   const fetchEvaluations = async () => {
     try {
-      // 評価データを取得
-      const { data: evaluationsData, error: evalError } = await supabase
+      // 権限に応じた評価データを取得
+      let query = supabase
         .from('evaluations')
         .select(`
           *,
           period:evaluation_periods(name),
           evaluatee:users!evaluatee_id(name, department)
         `)
-        .order('created_at', { ascending: false })
+
+      // 権限別フィルタリング
+      if (user?.role === 'staff') {
+        // スタッフは自分が評価者の評価のみ（自己評価のみ）
+        query = query.eq('evaluator_id', user.id).eq('stage', 'self')
+      } else if (user?.role === 'manager') {
+        // 店長は自部署の評価のみ
+        query = query.eq('evaluatee.department', user.department)
+      }
+      // mg と admin はすべての評価を閲覧可能（フィルタなし）
+
+      const { data: evaluationsData, error: evalError } = await query.order('created_at', { ascending: false })
 
       if (evalError) throw evalError
 
