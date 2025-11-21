@@ -62,8 +62,35 @@ export default function DashboardLayout({
           <DashboardNav />
         </div>
 
+        {/* 操作ガイド */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">📖 使い方</h3>
+          <div className="text-xs text-blue-800 space-y-2">
+            <div>
+              <p className="font-medium">1. テンプレート作成</p>
+              <p className="text-blue-700">評価項目と配点を設定</p>
+            </div>
+            <div>
+              <p className="font-medium">2. ユーザー追加</p>
+              <p className="text-blue-700">評価対象者を登録</p>
+            </div>
+            <div>
+              <p className="font-medium">3. 評価期間作成</p>
+              <p className="text-blue-700">期間とテンプレートを選択</p>
+            </div>
+            <div>
+              <p className="font-medium">4. 評価を割り当て</p>
+              <p className="text-blue-700">対象者にチェックして割り当て</p>
+            </div>
+            <div>
+              <p className="font-medium">5. 評価実施</p>
+              <p className="text-blue-700">本人→店長→MGの順で評価</p>
+            </div>
+          </div>
+        </div>
+
         {/* ユーザー情報とログアウト */}
-        <div className="mt-auto pt-6 border-t">
+        <div className="mt-6 pt-6 border-t">
           <div className="mb-3">
             <p className="text-sm font-medium text-gray-900">{user.name}</p>
             <p className="text-xs text-gray-600">{user.email}</p>

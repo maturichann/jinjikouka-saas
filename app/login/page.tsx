@@ -79,15 +79,6 @@ export default function LoginPage() {
               {isLoading ? "ログイン中..." : "ログイン"}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded text-sm">
-            <p className="font-semibold mb-2">初期管理者アカウント:</p>
-            <div className="space-y-1 text-xs">
-              <p><strong>メール:</strong> belsia.yokota@gmail.com</p>
-              <p><strong>パスワード:</strong> admin123</p>
-              <p className="text-gray-600 mt-2">→ ログイン後、ユーザー管理から他のユーザーを追加できます</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
