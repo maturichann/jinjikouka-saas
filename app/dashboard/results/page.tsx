@@ -1,0 +1,429 @@
+"use client"
+
+import { useState, useMemo } from "react"
+import { useAuth, canViewAllEvaluations } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { generateEvaluationPDF, generateMultipleEvaluationsPDF, type EvaluationPDFData } from "@/lib/pdf-export"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+type EvaluationResult = {
+  id: string
+  evaluatee: string
+  period: string
+  department: string
+  stage: 'self' | 'manager' | 'mg'
+  status: 'pending' | 'submitted'
+  totalScore: number
+  submittedAt: string
+}
+
+export default function ResultsPage() {
+  const { user } = useAuth()
+  const [filter, setFilter] = useState<string>("all")
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
+
+  const evaluations: EvaluationResult[] = [
+    {
+      id: "1",
+      evaluatee: "山田太郎",
+      period: "2024年度上期評価",
+      department: "営業部",
+      stage: "self",
+      status: "submitted",
+      totalScore: 4.2,
+      submittedAt: "2024-06-15"
+    },
+    {
+      id: "2",
+      evaluatee: "山田太郎",
+      period: "2024年度上期評価",
+      department: "営業部",
+      stage: "manager",
+      status: "submitted",
+      totalScore: 4.5,
+      submittedAt: "2024-06-20"
+    },
+    {
+      id: "3",
+      evaluatee: "山田太郎",
+      period: "2024年度上期評価",
+      department: "営業部",
+      stage: "mg",
+      status: "pending",
+      totalScore: 0,
+      submittedAt: "-"
+    },
+    {
+      id: "4",
+      evaluatee: "佐藤花子",
+      period: "2024年度上期評価",
+      department: "営業部",
+      stage: "self",
+      status: "submitted",
+      totalScore: 3.8,
+      submittedAt: "2024-06-16"
+    },
+    {
+      id: "5",
+      evaluatee: "佐藤花子",
+      period: "2024年度上期評価",
+      department: "営業部",
+      stage: "manager",
+      status: "pending",
+      totalScore: 0,
+      submittedAt: "-"
+    }
+  ]
+
+  const getStageLabel = (stage: string) => {
+    const labels: Record<string, string> = {
+      self: "本人評価",
+      manager: "店長評価",
+      mg: "MG評価"
+    }
+    return labels[stage] || stage
+  }
+
+  const getStageBadge = (stage: string) => {
+    const variants: Record<string, { variant: "default" | "secondary" | "outline" }> = {
+      self: { variant: "outline" },
+      manager: { variant: "default" },
+      mg: { variant: "secondary" }
+    }
+    const config = variants[stage] || variants.self
+    return <Badge variant={config.variant}>{getStageLabel(stage)}</Badge>
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
+      pending: { variant: "outline", label: "未提出" },
+      submitted: { variant: "default", label: "提出済み" }
+    }
+    const config = variants[status] || variants.pending
+    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
+
+  // 権限に基づいてフィルタリング
+  const filteredEvaluations = useMemo(() => {
+    if (!user) return []
+
+    let filtered = evaluations
+
+    // スタッフは自分の評価のみ
+    if (user.role === 'staff') {
+      filtered = evaluations.filter(e => e.evaluatee === user.name)
+    }
+    // 店長は自部署の評価のみ（filterが"all"でない限り）
+    else if (user.role === 'manager' && filter !== "all") {
+      filtered = evaluations.filter(e => e.department === user.department)
+    }
+    // MG・管理者は全て見れる
+
+    // さらにユーザーが選択したフィルターを適用
+    if (filter === "my-evaluations") {
+      filtered = filtered.filter(e => e.evaluatee === user.name)
+    } else if (filter === "my-department") {
+      filtered = filtered.filter(e => e.department === user.department)
+    }
+
+    return filtered
+  }, [evaluations, user, filter])
+
+  const uniqueEvaluatees = useMemo(() => {
+    return Array.from(new Set(filteredEvaluations.map(e => e.evaluatee)))
+  }, [filteredEvaluations])
+
+  const getPersonEvaluations = (name: string) => {
+    return evaluations.filter(e => e.evaluatee === name)
+  }
+
+  const handleExportPDF = (person: string) => {
+    const personEvals = getPersonEvaluations(person)
+    const pdfData: EvaluationPDFData = {
+      evaluatee: person,
+      department: personEvals[0]?.department || "",
+      period: personEvals[0]?.period || "",
+      evaluations: personEvals.map(e => ({
+        stage: getStageLabel(e.stage),
+        status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+        totalScore: e.totalScore,
+        submittedAt: e.submittedAt
+      }))
+    }
+    generateEvaluationPDF(pdfData)
+  }
+
+  const handleExportAllPDF = () => {
+    const allData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
+      const personEvals = getPersonEvaluations(person)
+      return {
+        evaluatee: person,
+        department: personEvals[0]?.department || "",
+        period: personEvals[0]?.period || "",
+        evaluations: personEvals.map(e => ({
+          stage: getStageLabel(e.stage),
+          status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+          totalScore: e.totalScore,
+          submittedAt: e.submittedAt
+        }))
+      }
+    })
+    generateMultipleEvaluationsPDF(allData)
+  }
+
+  if (!user) return null
+
+  const canViewAll = canViewAllEvaluations(user.role)
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">評価一覧</h1>
+        <p className="text-gray-600 mt-2">評価結果の確認とフィルタリング</p>
+        {user.role === 'staff' && (
+          <div className="mt-2 p-3 bg-blue-50 text-blue-800 text-sm rounded">
+            あなたの評価のみ表示されています
+          </div>
+        )}
+        {user.role === 'manager' && (
+          <div className="mt-2 p-3 bg-blue-50 text-blue-800 text-sm rounded">
+            あなたの店舗の評価が表示されています
+          </div>
+        )}
+        {user.role === 'mg' && (
+          <div className="mt-2 p-3 bg-green-50 text-green-800 text-sm rounded">
+            全ての評価を閲覧できます
+          </div>
+        )}
+      </div>
+
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="list">評価一覧</TabsTrigger>
+          <TabsTrigger value="unified">一元管理ビュー</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>評価一覧</CardTitle>
+                  <CardDescription>閲覧権限に基づいた評価の一覧</CardDescription>
+                </div>
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="フィルター" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {canViewAll && <SelectItem value="all">全ての評価</SelectItem>}
+                    <SelectItem value="my-evaluations">自分の評価</SelectItem>
+                    {(canViewAll || user.role === 'manager') && (
+                      <SelectItem value="my-department">自部署の評価</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>評価対象者</TableHead>
+                    <TableHead>部署</TableHead>
+                    <TableHead>評価期間</TableHead>
+                    <TableHead>評価段階</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>総合スコア</TableHead>
+                    <TableHead>提出日</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEvaluations.map((evaluation) => (
+                    <TableRow key={evaluation.id}>
+                      <TableCell className="font-medium">{evaluation.evaluatee}</TableCell>
+                      <TableCell>{evaluation.department}</TableCell>
+                      <TableCell>{evaluation.period}</TableCell>
+                      <TableCell>{getStageBadge(evaluation.stage)}</TableCell>
+                      <TableCell>{getStatusBadge(evaluation.status)}</TableCell>
+                      <TableCell>
+                        {evaluation.status === 'submitted' ? (
+                          <span className="font-semibold">{evaluation.totalScore.toFixed(1)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{evaluation.submittedAt}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">詳細</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="unified" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>一元管理ビュー</CardTitle>
+                  <CardDescription>同じ人の評価を並べて比較</CardDescription>
+                </div>
+                <Button onClick={handleExportAllPDF}>
+                  全員のPDFをエクスポート
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {uniqueEvaluatees.map((person) => {
+                const personEvals = getPersonEvaluations(person)
+                const selfEval = personEvals.find(e => e.stage === 'self')
+                const managerEval = personEvals.find(e => e.stage === 'manager')
+                const mgEval = personEvals.find(e => e.stage === 'mg')
+
+                return (
+                  <Card key={person} className="border-2">
+                    <CardHeader className="bg-gray-50">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle>{person}</CardTitle>
+                          <CardDescription>
+                            {personEvals[0]?.department} - {personEvals[0]?.period}
+                          </CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => handleExportPDF(person)}>
+                            PDFエクスポート
+                          </Button>
+                          <Button variant="outline">詳細を見る</Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-3 gap-4">
+                        {/* 本人評価 */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">本人評価</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {selfEval?.status === 'submitted' ? (
+                              <>
+                                <p className="text-3xl font-bold text-blue-600">
+                                  {selfEval.totalScore.toFixed(1)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {selfEval.submittedAt}
+                                </p>
+                                <Badge variant="default" className="mt-2">提出済み</Badge>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-3xl font-bold text-gray-300">-</p>
+                                <Badge variant="outline" className="mt-2">未提出</Badge>
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* 店長評価 */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">店長評価</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {managerEval?.status === 'submitted' ? (
+                              <>
+                                <p className="text-3xl font-bold text-green-600">
+                                  {managerEval.totalScore.toFixed(1)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {managerEval.submittedAt}
+                                </p>
+                                <Badge variant="default" className="mt-2">提出済み</Badge>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-3xl font-bold text-gray-300">-</p>
+                                <Badge variant="outline" className="mt-2">未提出</Badge>
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* MG評価 */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">MG評価</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {mgEval?.status === 'submitted' ? (
+                              <>
+                                <p className="text-3xl font-bold text-purple-600">
+                                  {mgEval.totalScore.toFixed(1)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {mgEval.submittedAt}
+                                </p>
+                                <Badge variant="default" className="mt-2">提出済み</Badge>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-3xl font-bold text-gray-300">-</p>
+                                <Badge variant="outline" className="mt-2">未提出</Badge>
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* 進捗バー */}
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">評価進捗</span>
+                          <span className="text-sm text-gray-600">
+                            {personEvals.filter(e => e.status === 'submitted').length} / 3
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{
+                              width: `${(personEvals.filter(e => e.status === 'submitted').length / 3) * 100}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
