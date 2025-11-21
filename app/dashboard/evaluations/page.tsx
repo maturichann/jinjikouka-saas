@@ -89,14 +89,14 @@ export default function EvaluationsPage() {
 
       const allEvals = [...(selfEvals || []), ...othersEvals]
 
-      const evaluationsWithItems = allEvals.map(eval => ({
-        id: eval.id,
-        evaluatee_id: eval.evaluatee?.id || '',
-        evaluatee_name: eval.evaluatee?.name || '',
-        period_id: eval.period?.id || '',
-        period_name: eval.period?.name || '',
-        stage: eval.stage,
-        status: eval.status,
+      const evaluationsWithItems = allEvals.map(evaluation => ({
+        id: evaluation.id,
+        evaluatee_id: evaluation.evaluatee?.id || '',
+        evaluatee_name: evaluation.evaluatee?.name || '',
+        period_id: evaluation.period?.id || '',
+        period_name: evaluation.period?.name || '',
+        stage: evaluation.stage,
+        status: evaluation.status,
         items: []
       }))
 
@@ -371,9 +371,9 @@ export default function EvaluationsPage() {
               <SelectValue placeholder="評価を選択" />
             </SelectTrigger>
             <SelectContent>
-              {availableEvaluations.map(eval => (
-                <SelectItem key={eval.id} value={eval.id}>
-                  {eval.period_name} - {eval.evaluatee_name} ({getStageLabel(eval.stage)})
+              {availableEvaluations.map(evaluation => (
+                <SelectItem key={evaluation.id} value={evaluation.id}>
+                  {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
                 </SelectItem>
               ))}
             </SelectContent>
