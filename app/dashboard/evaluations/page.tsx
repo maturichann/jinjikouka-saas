@@ -151,7 +151,7 @@ export default function EvaluationsPage() {
       if (scoresError) throw scoresError
 
       // 項目とスコアをマージ
-      const itemsWithScores = templateItems.map(item => {
+      const itemsWithScores = templateItems.map((item: any) => {
         const existingScore = scoresData?.find(s => s.item_id === item.id)
         return {
           id: item.id,
