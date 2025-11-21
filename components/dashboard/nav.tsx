@@ -30,6 +30,10 @@ const navItems = [
     title: "評価一覧",
     href: "/dashboard/results",
   },
+  {
+    title: "📖 使い方ガイド",
+    href: "/dashboard/guide",
+  },
 ]
 
 export function DashboardNav() {
