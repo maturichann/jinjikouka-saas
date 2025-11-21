@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [staffCode, setStaffCode] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -22,11 +22,11 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const success = await login(email, password)
+      const success = await login(staffCode, password)
       if (success) {
         router.push("/dashboard")
       } else {
-        setError("メールアドレスまたはパスワードが正しくありません")
+        setError("スタッフコードまたはパスワードが正しくありません")
       }
     } catch (err) {
       setError("ログインに失敗しました")
@@ -47,13 +47,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">メールアドレス</Label>
+              <Label htmlFor="staffCode">スタッフコード</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="staffCode"
+                type="text"
+                placeholder="例: 149"
+                value={staffCode}
+                onChange={(e) => setStaffCode(e.target.value)}
                 required
               />
             </div>

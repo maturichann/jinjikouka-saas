@@ -7,7 +7,7 @@ export type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
 
 export type User = {
   id: string
-  email: string
+  staff_code: string
   name: string
   role: UserRole
   department: string
@@ -15,7 +15,7 @@ export type User = {
 
 type AuthContextType = {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (staffCode: string, password: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
 }
@@ -40,13 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (staffCode: string, password: string): Promise<boolean> => {
     try {
-      // Supabaseからユーザーを検索
+      // Supabaseからユーザーを検索（スタッフコードで）
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, name, role, department, password_hash')
-        .eq('email', email)
+        .select('id, staff_code, name, role, department, password_hash')
+        .eq('staff_code', staffCode)
         .single()
 
       if (error || !data) {
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false
       }
 
-      // パスワードチェック（本番環境ではハッシュ化すべき）
+      // パスワードチェック
       if (data.password_hash !== password) {
         console.error('パスワードが一致しません')
         return false
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 認証成功
       const userData: User = {
         id: data.id,
-        email: data.email,
+        staff_code: data.staff_code,
         name: data.name,
         role: data.role as UserRole,
         department: data.department
