@@ -38,6 +38,8 @@ type EvaluationResult = {
 export default function ResultsPage() {
   const { user } = useAuth()
   const [filter, setFilter] = useState<string>("all")
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
+  const [periodFilter, setPeriodFilter] = useState<string>("all")
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -148,6 +150,15 @@ export default function ResultsPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
+  // 全ての部署と評価期間のリストを取得
+  const uniqueDepartments = useMemo(() => {
+    return Array.from(new Set(evaluations.map(e => e.department))).sort()
+  }, [evaluations])
+
+  const uniquePeriods = useMemo(() => {
+    return Array.from(new Set(evaluations.map(e => e.period))).sort()
+  }, [evaluations])
+
   // 権限に基づいてフィルタリング
   const filteredEvaluations = useMemo(() => {
     if (!user) return []
@@ -171,8 +182,18 @@ export default function ResultsPage() {
       filtered = filtered.filter(e => e.department === user.department)
     }
 
+    // 部署フィルター
+    if (departmentFilter !== "all") {
+      filtered = filtered.filter(e => e.department === departmentFilter)
+    }
+
+    // 評価期間フィルター
+    if (periodFilter !== "all") {
+      filtered = filtered.filter(e => e.period === periodFilter)
+    }
+
     return filtered
-  }, [evaluations, user, filter])
+  }, [evaluations, user, filter, departmentFilter, periodFilter])
 
   const uniqueEvaluatees = useMemo(() => {
     return Array.from(new Set(filteredEvaluations.map(e => e.evaluatee)))
@@ -216,6 +237,24 @@ export default function ResultsPage() {
     generateMultipleEvaluationsPDF(allData)
   }
 
+  const handleExportFilteredPDF = () => {
+    const filteredData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
+      const personEvals = filteredEvaluations.filter(e => e.evaluatee === person)
+      return {
+        evaluatee: person,
+        department: personEvals[0]?.department || "",
+        period: personEvals[0]?.period || "",
+        evaluations: personEvals.map(e => ({
+          stage: getStageLabel(e.stage),
+          status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+          totalScore: e.totalScore,
+          submittedAt: e.submittedAt
+        }))
+      }
+    })
+    generateMultipleEvaluationsPDF(filteredData)
+  }
+
   if (!user) return null
 
   const canViewAll = canViewAllEvaluations(user.role)
@@ -251,7 +290,7 @@ export default function ResultsPage() {
         <TabsContent value="list" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-4">
                 <div>
                   <CardTitle>評価一覧</CardTitle>
                   <CardDescription>閲覧権限に基づいた評価の一覧</CardDescription>
@@ -268,6 +307,42 @@ export default function ResultsPage() {
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex gap-3 items-center">
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-1 block">部署</label>
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全ての部署" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全ての部署</SelectItem>
+                      {uniqueDepartments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-1 block">評価期間</label>
+                  <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全ての期間" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全ての期間</SelectItem>
+                      {uniquePeriods.map(period => (
+                        <SelectItem key={period} value={period}>{period}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-1 block">アクション</label>
+                  <Button onClick={handleExportFilteredPDF} className="w-full">
+                    フィルター後のPDFエクスポート
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
