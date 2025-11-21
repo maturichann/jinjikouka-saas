@@ -38,7 +38,7 @@ type Period = {
 type UserForAssignment = {
   id: string
   name: string
-  email: string
+  staff_code: string
   department: string
   role: string
 }
@@ -89,7 +89,7 @@ export default function PeriodsPage() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, department, role')
+        .select('id, name, staff_code, department, role')
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -533,7 +533,7 @@ export default function PeriodsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-medium">{user.name}</span>
-                          <span className="text-sm text-gray-500 ml-2">({user.email})</span>
+                          <span className="text-sm text-gray-500 ml-2">({user.staff_code})</span>
                         </div>
                         <div className="text-sm text-gray-500">
                           {user.department} - {user.role}

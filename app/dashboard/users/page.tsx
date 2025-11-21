@@ -29,7 +29,7 @@ type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
 
 type User = {
   id: string
-  email: string
+  staff_code: string
   name: string
   role: UserRole
   department: string
@@ -55,7 +55,7 @@ export default function UsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [generatedPassword, setGeneratedPassword] = useState("")
   const [newUser, setNewUser] = useState({
-    email: "",
+    staff_code: "",
     name: "",
     role: "staff" as UserRole,
     department: ""
@@ -97,13 +97,14 @@ export default function UsersPage() {
   }
 
   const handleCreateUser = async () => {
-    const password = generatePassword()
+    // パスワードはスタッフコードと同じ
+    const password = newUser.staff_code
 
     try {
       const { data, error } = await supabase
         .from('users')
         .insert([{
-          email: newUser.email,
+          staff_code: newUser.staff_code,
           name: newUser.name,
           role: newUser.role,
           department: newUser.department,
@@ -114,7 +115,7 @@ export default function UsersPage() {
       if (error) throw error
 
       setGeneratedPassword(password)
-      setNewUser({ email: "", name: "", role: "staff", department: "" })
+      setNewUser({ staff_code: "", name: "", role: "staff", department: "" })
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -137,7 +138,7 @@ export default function UsersPage() {
       const { error } = await supabase
         .from('users')
         .update({
-          email: editingUser.email,
+          staff_code: editingUser.staff_code,
           name: editingUser.name,
           role: editingUser.role,
           department: editingUser.department
@@ -225,18 +226,18 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>新しいユーザーを追加</DialogTitle>
               <DialogDescription>
-                ユーザー情報を入力してください。パスワードは自動生成されます。
+                ユーザー情報を入力してください。パスワードはスタッフコードと同じになります。
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="email">メールアドレス</Label>
+                <Label htmlFor="staff_code">スタッフコード</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@company.com"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  id="staff_code"
+                  type="text"
+                  placeholder="例: 149"
+                  value={newUser.staff_code}
+                  onChange={(e) => setNewUser({ ...newUser, staff_code: e.target.value })}
                 />
               </div>
               <div>
@@ -275,7 +276,7 @@ export default function UsersPage() {
               {generatedPassword ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="font-semibold text-green-900 mb-2">ユーザーを作成しました！</p>
-                  <p className="text-sm text-green-800 mb-2">自動生成されたパスワード:</p>
+                  <p className="text-sm text-green-800 mb-2">パスワード（スタッフコードと同じ）:</p>
                   <p className="text-lg font-mono font-bold text-green-900 bg-white p-2 rounded border border-green-300">
                     {generatedPassword}
                   </p>
@@ -301,7 +302,7 @@ export default function UsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>名前</TableHead>
-                <TableHead>メールアドレス</TableHead>
+                <TableHead>スタッフコード</TableHead>
                 <TableHead>部署</TableHead>
                 <TableHead>役割</TableHead>
                 <TableHead>パスワード</TableHead>
@@ -313,7 +314,7 @@ export default function UsersPage() {
               {users.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell>{u.email}</TableCell>
+                  <TableCell>{u.staff_code}</TableCell>
                   <TableCell>{u.department}</TableCell>
                   <TableCell>{getRoleBadge(u.role)}</TableCell>
                   <TableCell>
@@ -368,12 +369,12 @@ export default function UsersPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-email">メールアドレス</Label>
+              <Label htmlFor="edit-staff_code">スタッフコード</Label>
               <Input
-                id="edit-email"
-                type="email"
-                value={editingUser?.email || ""}
-                onChange={(e) => editingUser && setEditingUser({ ...editingUser, email: e.target.value })}
+                id="edit-staff_code"
+                type="text"
+                value={editingUser?.staff_code || ""}
+                onChange={(e) => editingUser && setEditingUser({ ...editingUser, staff_code: e.target.value })}
               />
             </div>
             <div>

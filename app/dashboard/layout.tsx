@@ -93,7 +93,7 @@ export default function DashboardLayout({
         <div className="mt-6 pt-6 border-t">
           <div className="mb-3">
             <p className="text-sm font-medium text-gray-900">{user.name}</p>
-            <p className="text-xs text-gray-600">{user.email}</p>
+            <p className="text-xs text-gray-600">ID: {user.staff_code}</p>
             <p className="text-xs text-gray-600">{user.department}</p>
             <div className="mt-2">
               {getRoleBadge(user.role)}
