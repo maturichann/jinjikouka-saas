@@ -132,8 +132,7 @@ export default function PeriodsPage() {
           start_date: newPeriod.start_date,
           end_date: newPeriod.end_date,
           template_id: newPeriod.template_id,
-          status: 'draft',
-          created_by: user.id
+          status: 'draft'
         }])
         .select()
 

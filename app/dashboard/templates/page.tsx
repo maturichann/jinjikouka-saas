@@ -103,8 +103,7 @@ export default function TemplatesPage() {
         .from('evaluation_templates')
         .insert([{
           name: newTemplate.name,
-          description: newTemplate.description,
-          created_by: user.id
+          description: newTemplate.description
         }])
         .select()
 
