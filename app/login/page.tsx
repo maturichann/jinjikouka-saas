@@ -81,16 +81,11 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 p-4 bg-gray-50 rounded text-sm">
-            <p className="font-semibold mb-2">デモアカウント:</p>
+            <p className="font-semibold mb-2">初期管理者アカウント:</p>
             <div className="space-y-1 text-xs">
-              <p><strong>管理者:</strong> admin@example.com / admin123</p>
-              <p className="text-gray-600">→ 全ての機能にアクセス可能（編集権限あり）</p>
-              <p className="mt-2"><strong>MG:</strong> mg@example.com / mg123</p>
-              <p className="text-gray-600">→ 全ての評価を閲覧可能</p>
-              <p className="mt-2"><strong>店長:</strong> manager@example.com / manager123</p>
-              <p className="text-gray-600">→ 自店舗の評価実施・閲覧が可能</p>
-              <p className="mt-2"><strong>スタッフ:</strong> staff@example.com / staff123</p>
-              <p className="text-gray-600">→ 本人評価のみ可能</p>
+              <p><strong>メール:</strong> belsia.yokota@gmail.com</p>
+              <p><strong>パスワード:</strong> admin123</p>
+              <p className="text-gray-600 mt-2">→ ログイン後、ユーザー管理から他のユーザーを追加できます</p>
             </div>
           </div>
         </CardContent>

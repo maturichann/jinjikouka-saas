@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useAuth, canViewAllEvaluations } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { generateEvaluationPDF, generateMultipleEvaluationsPDF, type EvaluationPDFData } from "@/lib/pdf-export"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,59 +39,75 @@ export default function ResultsPage() {
   const { user } = useAuth()
   const [filter, setFilter] = useState<string>("all")
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
+  const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
 
-  const evaluations: EvaluationResult[] = [
-    {
-      id: "1",
-      evaluatee: "山田太郎",
-      period: "2024年度上期評価",
-      department: "営業部",
-      stage: "self",
-      status: "submitted",
-      totalScore: 4.2,
-      submittedAt: "2024-06-15"
-    },
-    {
-      id: "2",
-      evaluatee: "山田太郎",
-      period: "2024年度上期評価",
-      department: "営業部",
-      stage: "manager",
-      status: "submitted",
-      totalScore: 4.5,
-      submittedAt: "2024-06-20"
-    },
-    {
-      id: "3",
-      evaluatee: "山田太郎",
-      period: "2024年度上期評価",
-      department: "営業部",
-      stage: "mg",
-      status: "pending",
-      totalScore: 0,
-      submittedAt: "-"
-    },
-    {
-      id: "4",
-      evaluatee: "佐藤花子",
-      period: "2024年度上期評価",
-      department: "営業部",
-      stage: "self",
-      status: "submitted",
-      totalScore: 3.8,
-      submittedAt: "2024-06-16"
-    },
-    {
-      id: "5",
-      evaluatee: "佐藤花子",
-      period: "2024年度上期評価",
-      department: "営業部",
-      stage: "manager",
-      status: "pending",
-      totalScore: 0,
-      submittedAt: "-"
+  useEffect(() => {
+    if (user) {
+      fetchEvaluations()
     }
-  ]
+  }, [user])
+
+  const fetchEvaluations = async () => {
+    try {
+      // 評価データを取得
+      const { data: evaluationsData, error: evalError } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          period:evaluation_periods(name),
+          evaluatee:users!evaluatee_id(name, department)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (evalError) throw evalError
+
+      // 各評価のスコアを取得して総合点を計算
+      const evaluationsWithScores = await Promise.all(
+        (evaluationsData || []).map(async (evaluation) => {
+          const { data: scoresData, error: scoresError } = await supabase
+            .from('evaluation_scores')
+            .select(`
+              score,
+              item:evaluation_items(weight)
+            `)
+            .eq('evaluation_id', evaluation.id)
+
+          if (scoresError) throw scoresError
+
+          // 加重平均を計算
+          let totalScore = 0
+          if (scoresData && scoresData.length > 0) {
+            const totalWeight = scoresData.reduce((sum, s) => sum + (s.item?.weight || 0), 0)
+            const weightedScore = scoresData.reduce((sum, s) =>
+              sum + (s.score * (s.item?.weight || 0)), 0
+            )
+            totalScore = totalWeight > 0 ? weightedScore / totalWeight : 0
+          }
+
+          return {
+            id: evaluation.id,
+            evaluatee: evaluation.evaluatee?.name || '',
+            period: evaluation.period?.name || '',
+            department: evaluation.evaluatee?.department || '',
+            stage: evaluation.stage,
+            status: evaluation.status,
+            totalScore,
+            submittedAt: evaluation.submitted_at ?
+              new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-'
+          }
+        })
+      )
+
+      setEvaluations(evaluationsWithScores)
+    } catch (error) {
+      console.error('評価データの取得エラー:', error)
+      alert('評価データの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const getStageLabel = (stage: string) => {
     const labels: Record<string, string> = {

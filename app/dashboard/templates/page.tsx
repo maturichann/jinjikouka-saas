@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth, canManageTemplates } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -40,18 +41,8 @@ type Template = {
 
 export default function TemplatesPage() {
   const { user } = useAuth()
-  const [templates, setTemplates] = useState<Template[]>([
-    {
-      id: "1",
-      name: "一般社員用評価テンプレート",
-      description: "一般社員向けの標準評価項目",
-      items: [
-        { id: "1", name: "業務遂行能力", description: "担当業務の遂行度", weight: 30, criteria: "5.0: 期待を大きく上回る\n4.0: 期待を上回る\n3.0: 期待通り\n2.0: やや不足\n1.0: 大幅に不足" },
-        { id: "2", name: "コミュニケーション", description: "チーム内外との協調性", weight: 20, criteria: "5.0: 非常に優れている\n4.0: 優れている\n3.0: 標準的\n2.0: やや課題あり\n1.0: 改善が必要" },
-        { id: "3", name: "目標達成度", description: "設定目標の達成状況", weight: 50, criteria: "5.0: 120%以上達成\n4.0: 100-120%達成\n3.0: 80-100%達成\n2.0: 60-80%達成\n1.0: 60%未満" }
-      ]
-    }
-  ])
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false)
@@ -61,83 +52,184 @@ export default function TemplatesPage() {
   const [newItem, setNewItem] = useState({ name: "", description: "", weight: 0, criteria: "" })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
+  const supabase = createClient()
 
-  const handleCreateTemplate = () => {
-    const template: Template = {
-      id: String(templates.length + 1),
-      ...newTemplate,
-      items: []
-    }
-    setTemplates([...templates, template])
-    setNewTemplate({ name: "", description: "" })
-    setIsDialogOpen(false)
-  }
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
 
-  const handleAddItem = () => {
-    if (!selectedTemplate) return
-    const updatedTemplates = templates.map(t => {
-      if (t.id === selectedTemplate.id) {
-        return {
-          ...t,
-          items: [...t.items, {
-            id: String(t.items.length + 1),
-            ...newItem
-          }]
-        }
-      }
-      return t
-    })
-    setTemplates(updatedTemplates)
-    setNewItem({ name: "", description: "", weight: 0, criteria: "" })
-    setIsItemDialogOpen(false)
-  }
+  const fetchTemplates = async () => {
+    try {
+      // テンプレート取得
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('evaluation_templates')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-  const handleEditTemplate = () => {
-    if (!editingTemplate) return
-    const updatedTemplates = templates.map(t =>
-      t.id === editingTemplate.id ? editingTemplate : t
-    )
-    setTemplates(updatedTemplates)
-    setEditingTemplate(null)
-    setIsEditTemplateDialogOpen(false)
-  }
+      if (templatesError) throw templatesError
 
-  const handleEditItem = () => {
-    if (!editingItem || !selectedTemplate) return
-    const updatedTemplates = templates.map(t => {
-      if (t.id === selectedTemplate.id) {
-        return {
-          ...t,
-          items: t.items.map(item =>
-            item.id === editingItem.id ? editingItem : item
-          )
-        }
-      }
-      return t
-    })
-    setTemplates(updatedTemplates)
-    setEditingItem(null)
-    setIsEditItemDialogOpen(false)
-  }
+      // 各テンプレートの項目を取得
+      const templatesWithItems = await Promise.all(
+        (templatesData || []).map(async (template) => {
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('evaluation_items')
+            .select('*')
+            .eq('template_id', template.id)
+            .order('order_index', { ascending: true })
 
-  const handleDeleteTemplate = (templateId: string) => {
-    if (confirm("このテンプレートを削除してもよろしいですか？")) {
-      setTemplates(templates.filter(t => t.id !== templateId))
-    }
-  }
+          if (itemsError) throw itemsError
 
-  const handleDeleteItem = (templateId: string, itemId: string) => {
-    if (confirm("この評価項目を削除してもよろしいですか？")) {
-      const updatedTemplates = templates.map(t => {
-        if (t.id === templateId) {
           return {
-            ...t,
-            items: t.items.filter(item => item.id !== itemId)
+            ...template,
+            items: itemsData || []
           }
-        }
-        return t
-      })
-      setTemplates(updatedTemplates)
+        })
+      )
+
+      setTemplates(templatesWithItems)
+    } catch (error) {
+      console.error('テンプレートの取得エラー:', error)
+      alert('テンプレートの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateTemplate = async () => {
+    if (!user) return
+
+    try {
+      const { data, error } = await supabase
+        .from('evaluation_templates')
+        .insert([{
+          name: newTemplate.name,
+          description: newTemplate.description,
+          created_by: user.id
+        }])
+        .select()
+
+      if (error) throw error
+
+      setNewTemplate({ name: "", description: "" })
+      setIsDialogOpen(false)
+      fetchTemplates()
+    } catch (error) {
+      console.error('テンプレートの作成エラー:', error)
+      alert('テンプレートの作成に失敗しました')
+    }
+  }
+
+  const handleAddItem = async () => {
+    if (!selectedTemplate) return
+
+    try {
+      // 現在の項目数を取得してorder_indexを設定
+      const currentItemsCount = selectedTemplate.items.length
+
+      const { data, error } = await supabase
+        .from('evaluation_items')
+        .insert([{
+          template_id: selectedTemplate.id,
+          name: newItem.name,
+          description: newItem.description,
+          weight: newItem.weight,
+          criteria: newItem.criteria,
+          order_index: currentItemsCount
+        }])
+        .select()
+
+      if (error) throw error
+
+      setNewItem({ name: "", description: "", weight: 0, criteria: "" })
+      setIsItemDialogOpen(false)
+      fetchTemplates()
+    } catch (error) {
+      console.error('評価項目の追加エラー:', error)
+      alert('評価項目の追加に失敗しました')
+    }
+  }
+
+  const handleEditTemplate = async () => {
+    if (!editingTemplate) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluation_templates')
+        .update({
+          name: editingTemplate.name,
+          description: editingTemplate.description
+        })
+        .eq('id', editingTemplate.id)
+
+      if (error) throw error
+
+      setEditingTemplate(null)
+      setIsEditTemplateDialogOpen(false)
+      fetchTemplates()
+    } catch (error) {
+      console.error('テンプレートの更新エラー:', error)
+      alert('テンプレートの更新に失敗しました')
+    }
+  }
+
+  const handleEditItem = async () => {
+    if (!editingItem || !selectedTemplate) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluation_items')
+        .update({
+          name: editingItem.name,
+          description: editingItem.description,
+          weight: editingItem.weight,
+          criteria: editingItem.criteria
+        })
+        .eq('id', editingItem.id)
+
+      if (error) throw error
+
+      setEditingItem(null)
+      setIsEditItemDialogOpen(false)
+      fetchTemplates()
+    } catch (error) {
+      console.error('評価項目の更新エラー:', error)
+      alert('評価項目の更新に失敗しました')
+    }
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm("このテンプレートを削除してもよろしいですか？")) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluation_templates')
+        .delete()
+        .eq('id', templateId)
+
+      if (error) throw error
+
+      fetchTemplates()
+    } catch (error) {
+      console.error('テンプレートの削除エラー:', error)
+      alert('テンプレートの削除に失敗しました')
+    }
+  }
+
+  const handleDeleteItem = async (templateId: string, itemId: string) => {
+    if (!confirm("この評価項目を削除してもよろしいですか？")) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluation_items')
+        .delete()
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      fetchTemplates()
+    } catch (error) {
+      console.error('評価項目の削除エラー:', error)
+      alert('評価項目の削除に失敗しました')
     }
   }
 

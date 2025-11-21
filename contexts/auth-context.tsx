@@ -1,10 +1,12 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
 
 export type User = {
+  id: string
   email: string
   name: string
   role: UserRole
@@ -20,49 +22,10 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// ダミーユーザーデータベース（実際はSupabaseを使用）
-const DEMO_USERS: Record<string, { password: string; user: User }> = {
-  'admin@example.com': {
-    password: 'admin123',
-    user: {
-      email: 'admin@example.com',
-      name: '管理者太郎',
-      role: 'admin',
-      department: '本社'
-    }
-  },
-  'mg@example.com': {
-    password: 'mg123',
-    user: {
-      email: 'mg@example.com',
-      name: 'MG花子',
-      role: 'mg',
-      department: '本社'
-    }
-  },
-  'manager@example.com': {
-    password: 'manager123',
-    user: {
-      email: 'manager@example.com',
-      name: '店長太郎',
-      role: 'manager',
-      department: '渋谷店'
-    }
-  },
-  'staff@example.com': {
-    password: 'staff123',
-    user: {
-      email: 'staff@example.com',
-      name: '山田花子',
-      role: 'staff',
-      department: '渋谷店'
-    }
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
 
   useEffect(() => {
     // ローカルストレージから認証情報を復元
@@ -78,15 +41,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const userRecord = DEMO_USERS[email]
+    try {
+      // Supabaseからユーザーを検索
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, name, role, department, password_hash')
+        .eq('email', email)
+        .single()
 
-    if (userRecord && userRecord.password === password) {
-      setUser(userRecord.user)
-      localStorage.setItem('user', JSON.stringify(userRecord.user))
+      if (error || !data) {
+        console.error('ユーザーが見つかりません:', error)
+        return false
+      }
+
+      // パスワードチェック（本番環境ではハッシュ化すべき）
+      if (data.password_hash !== password) {
+        console.error('パスワードが一致しません')
+        return false
+      }
+
+      // 認証成功
+      const userData: User = {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role as UserRole,
+        department: data.department
+      }
+
+      setUser(userData)
+      localStorage.setItem('user', JSON.stringify(userData))
       return true
+    } catch (error) {
+      console.error('ログインエラー:', error)
+      return false
     }
-
-    return false
   }
 
   const logout = () => {

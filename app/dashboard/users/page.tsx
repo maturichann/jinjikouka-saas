@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -32,8 +33,8 @@ type User = {
   name: string
   role: UserRole
   department: string
-  password: string
-  createdAt: string
+  password_hash: string
+  created_at: string
 }
 
 // パスワード自動生成関数
@@ -48,44 +49,8 @@ const generatePassword = () => {
 
 export default function UsersPage() {
   const { user } = useAuth()
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      email: "admin@example.com",
-      name: "管理者太郎",
-      role: "admin",
-      department: "本社",
-      password: "admin123",
-      createdAt: "2024-01-01"
-    },
-    {
-      id: "2",
-      email: "mg@example.com",
-      name: "MG花子",
-      role: "mg",
-      department: "本社",
-      password: "mg123",
-      createdAt: "2024-01-01"
-    },
-    {
-      id: "3",
-      email: "manager@example.com",
-      name: "店長太郎",
-      role: "manager",
-      department: "渋谷店",
-      password: "manager123",
-      createdAt: "2024-01-01"
-    },
-    {
-      id: "4",
-      email: "staff@example.com",
-      name: "山田花子",
-      role: "staff",
-      department: "渋谷店",
-      password: "staff123",
-      createdAt: "2024-01-01"
-    }
-  ])
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [generatedPassword, setGeneratedPassword] = useState("")
@@ -96,6 +61,29 @@ export default function UsersPage() {
     department: ""
   })
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const supabase = createClient()
+
+  // ユーザー一覧を取得
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error('ユーザーの取得エラー:', error)
+      alert('ユーザーの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const getRoleBadge = (role: UserRole) => {
     const variants: Record<UserRole, { variant: "default" | "secondary" | "outline", label: string }> = {
@@ -108,48 +96,105 @@ export default function UsersPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     const password = generatePassword()
-    const newUserData: User = {
-      id: String(users.length + 1),
-      ...newUser,
-      password,
-      createdAt: new Date().toISOString().split('T')[0]
-    }
-    setUsers([...users, newUserData])
-    setGeneratedPassword(password)
-    setNewUser({ email: "", name: "", role: "staff", department: "" })
 
-    // パスワード表示のため、すぐにダイアログを閉じない
-    setTimeout(() => {
-      setIsDialogOpen(false)
-      setGeneratedPassword("")
-    }, 5000)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert([{
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+          department: newUser.department,
+          password_hash: password
+        }])
+        .select()
+
+      if (error) throw error
+
+      setGeneratedPassword(password)
+      setNewUser({ email: "", name: "", role: "staff", department: "" })
+
+      // ユーザーリストを再取得
+      fetchUsers()
+
+      // パスワード表示のため、すぐにダイアログを閉じない
+      setTimeout(() => {
+        setIsDialogOpen(false)
+        setGeneratedPassword("")
+      }, 5000)
+    } catch (error) {
+      console.error('ユーザーの作成エラー:', error)
+      alert('ユーザーの作成に失敗しました')
+    }
   }
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editingUser) return
-    const updatedUsers = users.map(u =>
-      u.id === editingUser.id ? editingUser : u
-    )
-    setUsers(updatedUsers)
-    setEditingUser(null)
-    setIsEditDialogOpen(false)
-  }
 
-  const handleDeleteUser = (userId: string) => {
-    if (confirm("このユーザーを削除してもよろしいですか？")) {
-      setUsers(users.filter(u => u.id !== userId))
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          email: editingUser.email,
+          name: editingUser.name,
+          role: editingUser.role,
+          department: editingUser.department
+        })
+        .eq('id', editingUser.id)
+
+      if (error) throw error
+
+      setEditingUser(null)
+      setIsEditDialogOpen(false)
+
+      // ユーザーリストを再取得
+      fetchUsers()
+    } catch (error) {
+      console.error('ユーザーの更新エラー:', error)
+      alert('ユーザーの更新に失敗しました')
     }
   }
 
-  const handleResetPassword = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("このユーザーを削除してもよろしいですか？")) return
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+
+      if (error) throw error
+
+      // ユーザーリストを再取得
+      fetchUsers()
+    } catch (error) {
+      console.error('ユーザーの削除エラー:', error)
+      alert('ユーザーの削除に失敗しました')
+    }
+  }
+
+  const handleResetPassword = async (userId: string) => {
     const newPassword = generatePassword()
-    const updatedUsers = users.map(u =>
-      u.id === userId ? { ...u, password: newPassword } : u
-    )
-    setUsers(updatedUsers)
-    alert(`新しいパスワード: ${newPassword}\n\nこのパスワードをユーザーに伝えてください。`)
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ password_hash: newPassword })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      alert(`新しいパスワード: ${newPassword}\n\nこのパスワードをユーザーに伝えてください。`)
+
+      // ユーザーリストを再取得
+      fetchUsers()
+    } catch (error) {
+      console.error('パスワードのリセットエラー:', error)
+      alert('パスワードのリセットに失敗しました')
+    }
   }
 
   if (!user) return null
@@ -273,10 +318,10 @@ export default function UsersPage() {
                   <TableCell>{getRoleBadge(u.role)}</TableCell>
                   <TableCell>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {u.password}
+                      {u.password_hash}
                     </code>
                   </TableCell>
-                  <TableCell>{u.createdAt}</TableCell>
+                  <TableCell>{new Date(u.created_at).toLocaleDateString('ja-JP')}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button

@@ -1,13 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth, canEvaluateOthers } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 
 type EvaluationItem = {
   id: string
@@ -21,8 +30,10 @@ type EvaluationItem = {
 
 type Evaluation = {
   id: string
-  evaluatee: string
-  period: string
+  evaluatee_id: string
+  evaluatee_name: string
+  period_id: string
+  period_name: string
   stage: 'self' | 'manager' | 'mg'
   status: 'pending' | 'in_progress' | 'submitted'
   items: EvaluationItem[]
@@ -30,21 +41,269 @@ type Evaluation = {
 
 export default function EvaluationsPage() {
   const { user } = useAuth()
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([
-    {
-      id: "1",
-      evaluatee: "山田太郎",
-      period: "2024年度上期評価",
-      stage: "self",
-      status: "in_progress",
-      items: [
-        { id: "1", name: "業務遂行能力", description: "担当業務の遂行度", weight: 30, criteria: "5.0: 期待を大きく上回る\n4.0: 期待を上回る\n3.0: 期待通り\n2.0: やや不足\n1.0: 大幅に不足", score: 0, comment: "" },
-        { id: "2", name: "コミュニケーション", description: "チーム内外との協調性", weight: 20, criteria: "5.0: 非常に優れている\n4.0: 優れている\n3.0: 標準的\n2.0: やや課題あり\n1.0: 改善が必要", score: 0, comment: "" },
-        { id: "3", name: "目標達成度", description: "設定目標の達成状況", weight: 50, criteria: "5.0: 120%以上達成\n4.0: 100-120%達成\n3.0: 80-100%達成\n2.0: 60-80%達成\n1.0: 60%未満", score: 0, comment: "" }
-      ]
+  const [availableEvaluations, setAvailableEvaluations] = useState<Evaluation[]>([])
+  const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (user) {
+      fetchAvailableEvaluations()
     }
-  ])
-  const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation>(evaluations[0])
+  }, [user])
+
+  const fetchAvailableEvaluations = async () => {
+    if (!user) return
+
+    try {
+      // 本人の評価（self stage）を取得
+      const { data: selfEvals, error: selfError } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          period:evaluation_periods(id, name),
+          evaluatee:users!evaluatee_id(id, name)
+        `)
+        .eq('evaluatee_id', user.id)
+        .in('status', ['pending', 'in_progress'])
+
+      if (selfError) throw selfError
+
+      // 他人を評価する権限がある場合、評価すべき他者の評価を取得
+      let othersEvals = []
+      if (canEvaluateOthers(user.role)) {
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select(`
+            *,
+            period:evaluation_periods(id, name),
+            evaluatee:users!evaluatee_id(id, name, department)
+          `)
+          .eq('evaluator_id', user.id)
+          .in('status', ['pending', 'in_progress'])
+
+        if (error) throw error
+        othersEvals = data || []
+      }
+
+      const allEvals = [...(selfEvals || []), ...othersEvals]
+
+      const evaluationsWithItems = allEvals.map(eval => ({
+        id: eval.id,
+        evaluatee_id: eval.evaluatee?.id || '',
+        evaluatee_name: eval.evaluatee?.name || '',
+        period_id: eval.period?.id || '',
+        period_name: eval.period?.name || '',
+        stage: eval.stage,
+        status: eval.status,
+        items: []
+      }))
+
+      setAvailableEvaluations(evaluationsWithItems)
+
+      if (evaluationsWithItems.length > 0 && !currentEvaluation) {
+        loadEvaluation(evaluationsWithItems[0].id)
+      }
+    } catch (error) {
+      console.error('評価の取得エラー:', error)
+      alert('評価の取得に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadEvaluation = async (evaluationId: string) => {
+    try {
+      setIsLoading(true)
+
+      // 評価の詳細を取得
+      const { data: evalData, error: evalError } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          period:evaluation_periods(id, name, template_id),
+          evaluatee:users!evaluatee_id(id, name)
+        `)
+        .eq('id', evaluationId)
+        .single()
+
+      if (evalError) throw evalError
+
+      // テンプレートの項目を取得（period経由でtemplate_idを取得する必要がある）
+      // まずperiodからtemplate_idを取得
+      const { data: periodData, error: periodError } = await supabase
+        .from('evaluation_periods')
+        .select('template_id, evaluation_templates(id, evaluation_items(*))')
+        .eq('id', evalData.period.id)
+        .single()
+
+      if (periodError) throw periodError
+
+      const templateItems = periodData?.evaluation_templates?.evaluation_items || []
+
+      // 既存のスコアを取得
+      const { data: scoresData, error: scoresError } = await supabase
+        .from('evaluation_scores')
+        .select('*')
+        .eq('evaluation_id', evaluationId)
+
+      if (scoresError) throw scoresError
+
+      // 項目とスコアをマージ
+      const itemsWithScores = templateItems.map(item => {
+        const existingScore = scoresData?.find(s => s.item_id === item.id)
+        return {
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          weight: item.weight,
+          criteria: item.criteria || '',
+          score: existingScore?.score || 0,
+          comment: existingScore?.comment || ''
+        }
+      })
+
+      setCurrentEvaluation({
+        id: evalData.id,
+        evaluatee_id: evalData.evaluatee.id,
+        evaluatee_name: evalData.evaluatee.name,
+        period_id: evalData.period.id,
+        period_name: evalData.period.name,
+        stage: evalData.stage,
+        status: evalData.status,
+        items: itemsWithScores
+      })
+    } catch (error) {
+      console.error('評価の読み込みエラー:', error)
+      alert('評価の読み込みに失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleScoreChange = async (itemId: string, score: string) => {
+    if (!currentEvaluation) return
+
+    const scoreValue = parseFloat(score) || 0
+    if (scoreValue < 1.0 || scoreValue > 5.0) return
+
+    const updatedItems = currentEvaluation.items.map(item =>
+      item.id === itemId ? { ...item, score: scoreValue } : item
+    )
+
+    setCurrentEvaluation({
+      ...currentEvaluation,
+      items: updatedItems
+    })
+
+    // 自動保存
+    await saveScore(itemId, scoreValue, currentEvaluation.items.find(i => i.id === itemId)?.comment || '')
+  }
+
+  const handleCommentChange = async (itemId: string, comment: string) => {
+    if (!currentEvaluation) return
+
+    const updatedItems = currentEvaluation.items.map(item =>
+      item.id === itemId ? { ...item, comment } : item
+    )
+
+    setCurrentEvaluation({
+      ...currentEvaluation,
+      items: updatedItems
+    })
+
+    // 自動保存
+    await saveScore(itemId, currentEvaluation.items.find(i => i.id === itemId)?.score || 0, comment)
+  }
+
+  const saveScore = async (itemId: string, score: number, comment: string) => {
+    if (!currentEvaluation || score === 0) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluation_scores')
+        .upsert({
+          evaluation_id: currentEvaluation.id,
+          item_id: itemId,
+          score,
+          comment
+        }, {
+          onConflict: 'evaluation_id,item_id'
+        })
+
+      if (error) throw error
+
+      // ステータスを in_progress に更新（まだ pending の場合）
+      if (currentEvaluation.status === 'pending') {
+        await supabase
+          .from('evaluations')
+          .update({ status: 'in_progress' })
+          .eq('id', currentEvaluation.id)
+
+        setCurrentEvaluation({
+          ...currentEvaluation,
+          status: 'in_progress'
+        })
+      }
+    } catch (error) {
+      console.error('スコア保存エラー:', error)
+    }
+  }
+
+  const calculateTotalScore = () => {
+    if (!currentEvaluation) return "0.0"
+
+    const totalWeight = currentEvaluation.items.reduce((sum, item) => sum + item.weight, 0)
+    const weightedScore = currentEvaluation.items.reduce((sum, item) =>
+      sum + (item.score * item.weight), 0
+    )
+    return totalWeight > 0 ? (weightedScore / totalWeight).toFixed(1) : "0.0"
+  }
+
+  const handleSubmit = async () => {
+    if (!currentEvaluation) return
+
+    // 全項目にスコアが入っているか確認
+    const hasAllScores = currentEvaluation.items.every(item => item.score > 0)
+    if (!hasAllScores) {
+      alert('全ての評価項目にスコアを入力してください')
+      return
+    }
+
+    if (!confirm('評価を提出してもよろしいですか？提出後は編集できません。')) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+
+      const { error } = await supabase
+        .from('evaluations')
+        .update({
+          status: 'submitted',
+          submitted_at: new Date().toISOString()
+        })
+        .eq('id', currentEvaluation.id)
+
+      if (error) throw error
+
+      alert('評価を提出しました')
+
+      // リストを再取得
+      await fetchAvailableEvaluations()
+      setCurrentEvaluation(null)
+    } catch (error) {
+      console.error('提出エラー:', error)
+      alert('評価の提出に失敗しました')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    alert('変更は自動保存されています')
+  }
 
   const getStageLabel = (stage: string) => {
     const labels: Record<string, string> = {
@@ -65,46 +324,31 @@ export default function EvaluationsPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  const handleScoreChange = (itemId: string, score: string) => {
-    const scoreValue = parseFloat(score) || 0
-    if (scoreValue < 1.0 || scoreValue > 5.0) return
-
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      items: currentEvaluation.items.map(item =>
-        item.id === itemId ? { ...item, score: scoreValue } : item
-      )
-    })
-  }
-
-  const handleCommentChange = (itemId: string, comment: string) => {
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      items: currentEvaluation.items.map(item =>
-        item.id === itemId ? { ...item, comment } : item
-      )
-    })
-  }
-
-  const calculateTotalScore = () => {
-    const totalWeight = currentEvaluation.items.reduce((sum, item) => sum + item.weight, 0)
-    const weightedScore = currentEvaluation.items.reduce((sum, item) =>
-      sum + (item.score * item.weight), 0
-    )
-    return totalWeight > 0 ? (weightedScore / totalWeight).toFixed(1) : "0.0"
-  }
-
-  const handleSubmit = () => {
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      status: 'submitted'
-    })
-    alert("評価を提出しました")
-  }
-
   if (!user) return null
 
-  const canEvaluate = canEvaluateOthers(user.role)
+  if (isLoading && !currentEvaluation) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">評価実施</h1>
+        <p className="text-gray-600">読み込み中...</p>
+      </div>
+    )
+  }
+
+  if (availableEvaluations.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">評価実施</h1>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-gray-500 py-8">
+              現在実施可能な評価はありません
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -113,136 +357,124 @@ export default function EvaluationsPage() {
         <p className="text-gray-600 mt-2">本人評価 → 店長評価 → MG評価</p>
       </div>
 
-      <Tabs defaultValue="self" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="self">本人評価</TabsTrigger>
-          <TabsTrigger value="manager">店長評価</TabsTrigger>
-          <TabsTrigger value="mg">MG評価</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="self" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle>本人評価</CardTitle>
-                  <CardDescription>自己評価を入力してください</CardDescription>
-                </div>
-                {getStageBadge(currentEvaluation.stage)}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-semibold mb-2">評価対象者</h3>
-                <p className="text-lg">{currentEvaluation.evaluatee}</p>
-                <p className="text-sm text-gray-600">{currentEvaluation.period}</p>
-              </div>
-
-              {currentEvaluation.items.map((item) => (
-                <Card key={item.id}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{item.name}</CardTitle>
-                    <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
-                    {item.criteria && (
-                      <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
-                        <p className="font-semibold text-blue-900 mb-1">採点基準:</p>
-                        <pre className="text-blue-800 whitespace-pre-line font-sans">{item.criteria}</pre>
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor={`score-${item.id}`}>評価点（1.0〜5.0、小数点1位まで）</Label>
-                      <Input
-                        id={`score-${item.id}`}
-                        type="number"
-                        step="0.1"
-                        min="1.0"
-                        max="5.0"
-                        placeholder="例: 4.5"
-                        value={item.score || ""}
-                        onChange={(e) => handleScoreChange(item.id, e.target.value)}
-                        className="max-w-xs"
-                      />
-                      <p className="text-sm text-gray-500 mt-1">
-                        加重スコア: {(item.score * item.weight).toFixed(1)}点
-                      </p>
-                    </div>
-                    <div>
-                      <Label htmlFor={`comment-${item.id}`}>コメント</Label>
-                      <Input
-                        id={`comment-${item.id}`}
-                        placeholder="評価の理由や詳細を記入してください"
-                        value={item.comment}
-                        onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>評価を選択</CardTitle>
+          <CardDescription>実施する評価を選択してください</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={currentEvaluation?.id || ''}
+            onValueChange={loadEvaluation}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="評価を選択" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableEvaluations.map(eval => (
+                <SelectItem key={eval.id} value={eval.id}>
+                  {eval.period_name} - {eval.evaluatee_name} ({getStageLabel(eval.stage)})
+                </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
-              <div className="p-6 bg-green-50 rounded-lg">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">総合評価</h3>
-                  <p className="text-3xl font-bold text-green-700">{calculateTotalScore()}</p>
-                </div>
-                <p className="text-sm text-gray-600">
-                  各項目の評価点を配点で加重平均した総合スコアです
-                </p>
+      {currentEvaluation && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>{getStageLabel(currentEvaluation.stage)}</CardTitle>
+                <CardDescription>
+                  {currentEvaluation.period_name} - {currentEvaluation.evaluatee_name}
+                </CardDescription>
               </div>
+              {getStageBadge(currentEvaluation.stage)}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-semibold mb-2">評価対象者</h3>
+              <p className="text-lg">{currentEvaluation.evaluatee_name}</p>
+              <p className="text-sm text-gray-600">{currentEvaluation.period_name}</p>
+            </div>
 
-              <div className="flex gap-4">
-                <Button onClick={handleSubmit} size="lg" className="flex-1">
-                  評価を提出
-                </Button>
-                <Button variant="outline" size="lg">
-                  下書き保存
-                </Button>
+            {currentEvaluation.items.map((item) => (
+              <Card key={item.id}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{item.name}</CardTitle>
+                  <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
+                  {item.criteria && (
+                    <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
+                      <p className="font-semibold text-blue-900 mb-1">採点基準:</p>
+                      <pre className="text-blue-800 whitespace-pre-line font-sans">{item.criteria}</pre>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor={`score-${item.id}`}>評価点（1.0〜5.0、小数点1位まで）</Label>
+                    <Input
+                      id={`score-${item.id}`}
+                      type="number"
+                      step="0.1"
+                      min="1.0"
+                      max="5.0"
+                      placeholder="例: 4.5"
+                      value={item.score || ""}
+                      onChange={(e) => handleScoreChange(item.id, e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      加重スコア: {(item.score * item.weight).toFixed(1)}点
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor={`comment-${item.id}`}>コメント</Label>
+                    <Textarea
+                      id={`comment-${item.id}`}
+                      placeholder="評価の理由や詳細を記入してください"
+                      value={item.comment}
+                      onChange={(e) => handleCommentChange(item.id, e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            <div className="p-6 bg-green-50 rounded-lg">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">総合評価</h3>
+                <p className="text-3xl font-bold text-green-700">{calculateTotalScore()}</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <p className="text-sm text-gray-600">
+                各項目の評価点を配点で加重平均した総合スコアです
+              </p>
+            </div>
 
-        <TabsContent value="manager" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>店長評価</CardTitle>
-              <CardDescription>店長による評価</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {canEvaluate ? (
-                <p className="text-center text-gray-500 py-8">
-                  本人評価が完了すると店長評価が可能になります
-                </p>
-              ) : (
-                <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-yellow-800">この評価は店長・管理者のみが実施できます。</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mg" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>MG評価</CardTitle>
-              <CardDescription>マネージャーによる最終評価</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {canEvaluate ? (
-                <p className="text-center text-gray-500 py-8">
-                  店長評価が完了するとMG評価が可能になります
-                </p>
-              ) : (
-                <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-yellow-800">この評価は管理者のみが実施できます。</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <div className="flex gap-4">
+              <Button
+                onClick={handleSubmit}
+                size="lg"
+                className="flex-1"
+                disabled={isSaving}
+              >
+                評価を提出
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleSaveDraft}
+              >
+                下書き保存
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
