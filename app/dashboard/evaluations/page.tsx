@@ -57,22 +57,10 @@ export default function EvaluationsPage() {
     if (!user) return
 
     try {
-      // 本人の評価（self stage）を取得
-      const { data: selfEvals, error: selfError } = await supabase
-        .from('evaluations')
-        .select(`
-          *,
-          period:evaluation_periods(id, name),
-          evaluatee:users!evaluatee_id(id, name)
-        `)
-        .eq('evaluatee_id', user.id)
-        .in('status', ['pending', 'in_progress'])
+      let allEvals = []
 
-      if (selfError) throw selfError
-
-      // 他人を評価する権限がある場合、評価すべき他者の評価を取得
-      let othersEvals = []
-      if (canEvaluateOthers(user.role)) {
+      // 管理者の場合は全ての評価を取得
+      if (user.role === 'admin') {
         const { data, error } = await supabase
           .from('evaluations')
           .select(`
@@ -80,14 +68,44 @@ export default function EvaluationsPage() {
             period:evaluation_periods(id, name),
             evaluatee:users!evaluatee_id(id, name, department)
           `)
-          .eq('evaluator_id', user.id)
           .in('status', ['pending', 'in_progress'])
+          .order('created_at', { ascending: false })
 
         if (error) throw error
-        othersEvals = data || []
-      }
+        allEvals = data || []
+      } else {
+        // 本人の評価（self stage）を取得
+        const { data: selfEvals, error: selfError } = await supabase
+          .from('evaluations')
+          .select(`
+            *,
+            period:evaluation_periods(id, name),
+            evaluatee:users!evaluatee_id(id, name)
+          `)
+          .eq('evaluatee_id', user.id)
+          .in('status', ['pending', 'in_progress'])
 
-      const allEvals = [...(selfEvals || []), ...othersEvals]
+        if (selfError) throw selfError
+
+        // 他人を評価する権限がある場合、評価すべき他者の評価を取得
+        let othersEvals = []
+        if (canEvaluateOthers(user.role)) {
+          const { data, error } = await supabase
+            .from('evaluations')
+            .select(`
+              *,
+              period:evaluation_periods(id, name),
+              evaluatee:users!evaluatee_id(id, name, department)
+            `)
+            .eq('evaluator_id', user.id)
+            .in('status', ['pending', 'in_progress'])
+
+          if (error) throw error
+          othersEvals = data || []
+        }
+
+        allEvals = [...(selfEvals || []), ...othersEvals]
+      }
 
       const evaluationsWithItems = allEvals.map(evaluation => ({
         id: evaluation.id,
