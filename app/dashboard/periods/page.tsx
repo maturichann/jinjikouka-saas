@@ -237,6 +237,10 @@ export default function PeriodsPage() {
     try {
       setIsAssigning(true)
 
+      console.log('=== 評価割り当て開始 ===')
+      console.log('選択された評価期間:', selectedPeriodForAssignment)
+      console.log('選択されたユーザーID:', selectedUserIds)
+
       // 各ユーザーに対して3段階の評価を作成（self, manager, mg）
       const evaluationsToCreate = []
 
@@ -269,11 +273,24 @@ export default function PeriodsPage() {
         })
       }
 
-      const { error } = await supabase
+      console.log('挿入する評価データ:', evaluationsToCreate)
+
+      const { data, error } = await supabase
         .from('evaluations')
         .insert(evaluationsToCreate)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabaseエラー詳細:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        })
+        throw error
+      }
+
+      console.log('評価の作成成功:', data)
 
       alert(`${selectedUserIds.length}人のユーザーに評価を割り当てました`)
       setIsAssignDialogOpen(false)
@@ -283,8 +300,10 @@ export default function PeriodsPage() {
       console.error('評価の割り当てエラー:', error)
       if (error.code === '23505') {
         alert('一部のユーザーには既に評価が割り当てられています')
+      } else if (error.code === '23503') {
+        alert('データベース制約エラー: 選択されたユーザーまたは評価期間が無効です\n詳細: ' + error.message)
       } else {
-        alert('評価の割り当てに失敗しました')
+        alert('評価の割り当てに失敗しました\nエラー: ' + (error.message || 'Unknown error'))
       }
     } finally {
       setIsAssigning(false)
