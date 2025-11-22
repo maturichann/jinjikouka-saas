@@ -57,31 +57,23 @@ export default function EvaluationsPage() {
     if (!user) return
 
     try {
-      let allEvals = []
+      let evaluationsData = []
 
       // 管理者の場合は全ての評価を取得
       if (user.role === 'admin') {
         const { data, error } = await supabase
           .from('evaluations')
-          .select(`
-            *,
-            period:evaluation_periods(id, name),
-            evaluatee:users!evaluations_evaluatee_id_fkey(id, name, department)
-          `)
+          .select('*')
           .in('status', ['pending', 'in_progress'])
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        allEvals = data || []
+        evaluationsData = data || []
       } else {
         // 本人の評価（self stage）を取得
         const { data: selfEvals, error: selfError } = await supabase
           .from('evaluations')
-          .select(`
-            *,
-            period:evaluation_periods(id, name),
-            evaluatee:users!evaluations_evaluatee_id_fkey(id, name)
-          `)
+          .select('*')
           .eq('evaluatee_id', user.id)
           .in('status', ['pending', 'in_progress'])
 
@@ -92,11 +84,7 @@ export default function EvaluationsPage() {
         if (canEvaluateOthers(user.role)) {
           const { data, error } = await supabase
             .from('evaluations')
-            .select(`
-              *,
-              period:evaluation_periods(id, name),
-              evaluatee:users!evaluations_evaluatee_id_fkey(id, name, department)
-            `)
+            .select('*')
             .eq('evaluator_id', user.id)
             .in('status', ['pending', 'in_progress'])
 
@@ -104,19 +92,46 @@ export default function EvaluationsPage() {
           othersEvals = data || []
         }
 
-        allEvals = [...(selfEvals || []), ...othersEvals]
+        evaluationsData = [...(selfEvals || []), ...othersEvals]
       }
 
-      const evaluationsWithItems = allEvals.map(evaluation => ({
-        id: evaluation.id,
-        evaluatee_id: evaluation.evaluatee?.id || '',
-        evaluatee_name: evaluation.evaluatee?.name || '',
-        period_id: evaluation.period?.id || '',
-        period_name: evaluation.period?.name || '',
-        stage: evaluation.stage,
-        status: evaluation.status,
-        items: []
-      }))
+      // ユーザー情報を別途取得
+      const userIds = [...new Set(evaluationsData.map(e => e.evaluatee_id))]
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, department')
+        .in('id', userIds)
+
+      if (usersError) throw usersError
+
+      // 評価期間情報を別途取得
+      const periodIds = [...new Set(evaluationsData.map(e => e.period_id))]
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('evaluation_periods')
+        .select('id, name')
+        .in('id', periodIds)
+
+      if (periodsError) throw periodsError
+
+      // データをマージ
+      const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
+      const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
+
+      const evaluationsWithItems = evaluationsData.map(evaluation => {
+        const evaluatee = usersMap.get(evaluation.evaluatee_id)
+        const period = periodsMap.get(evaluation.period_id)
+
+        return {
+          id: evaluation.id,
+          evaluatee_id: evaluation.evaluatee_id,
+          evaluatee_name: evaluatee?.name || '',
+          period_id: evaluation.period_id,
+          period_name: period?.name || '',
+          stage: evaluation.stage,
+          status: evaluation.status,
+          items: []
+        }
+      })
 
       setAvailableEvaluations(evaluationsWithItems)
 
@@ -144,27 +159,44 @@ export default function EvaluationsPage() {
       // 評価の詳細を取得
       const { data: evalData, error: evalError } = await supabase
         .from('evaluations')
-        .select(`
-          *,
-          period:evaluation_periods(id, name, template_id),
-          evaluatee:users!evaluations_evaluatee_id_fkey(id, name)
-        `)
+        .select('*')
         .eq('id', evaluationId)
         .single()
 
       if (evalError) throw evalError
 
-      // テンプレートの項目を取得（period経由でtemplate_idを取得する必要がある）
-      // まずperiodからtemplate_idを取得
+      // ユーザー情報を取得
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('id', evalData.evaluatee_id)
+        .single()
+
+      if (userError) throw userError
+
+      // 評価期間情報を取得
       const { data: periodData, error: periodError } = await supabase
         .from('evaluation_periods')
-        .select('template_id, evaluation_templates(id, evaluation_items(*))')
-        .eq('id', evalData.period.id)
+        .select('id, name, template_id')
+        .eq('id', evalData.period_id)
         .single()
 
       if (periodError) throw periodError
 
-      const templateItems = (periodData?.evaluation_templates as any)?.evaluation_items || []
+      // evalDataを拡張
+      const evaluatee = userData
+      const period = periodData
+
+      // テンプレートの項目を取得
+      const { data: templateData, error: templateError } = await supabase
+        .from('evaluation_templates')
+        .select('id, evaluation_items(*)')
+        .eq('id', period.template_id)
+        .single()
+
+      if (templateError) throw templateError
+
+      const templateItems = (templateData?.evaluation_items as any) || []
 
       // 既存のスコアを取得
       const { data: scoresData, error: scoresError } = await supabase
@@ -190,10 +222,10 @@ export default function EvaluationsPage() {
 
       setCurrentEvaluation({
         id: evalData.id,
-        evaluatee_id: evalData.evaluatee.id,
-        evaluatee_name: evalData.evaluatee.name,
-        period_id: evalData.period.id,
-        period_name: evalData.period.name,
+        evaluatee_id: evaluatee.id,
+        evaluatee_name: evaluatee.name,
+        period_id: period.id,
+        period_name: period.name,
         stage: evalData.stage,
         status: evalData.status,
         items: itemsWithScores
