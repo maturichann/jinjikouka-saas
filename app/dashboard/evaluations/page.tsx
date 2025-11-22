@@ -66,7 +66,7 @@ export default function EvaluationsPage() {
           .select(`
             *,
             period:evaluation_periods(id, name),
-            evaluatee:users!evaluatee_id(id, name, department)
+            evaluatee:users!evaluations_evaluatee_id_fkey(id, name, department)
           `)
           .in('status', ['pending', 'in_progress'])
           .order('created_at', { ascending: false })
@@ -80,7 +80,7 @@ export default function EvaluationsPage() {
           .select(`
             *,
             period:evaluation_periods(id, name),
-            evaluatee:users!evaluatee_id(id, name)
+            evaluatee:users!evaluations_evaluatee_id_fkey(id, name)
           `)
           .eq('evaluatee_id', user.id)
           .in('status', ['pending', 'in_progress'])
@@ -95,7 +95,7 @@ export default function EvaluationsPage() {
             .select(`
               *,
               period:evaluation_periods(id, name),
-              evaluatee:users!evaluatee_id(id, name, department)
+              evaluatee:users!evaluations_evaluatee_id_fkey(id, name, department)
             `)
             .eq('evaluator_id', user.id)
             .in('status', ['pending', 'in_progress'])
@@ -123,9 +123,15 @@ export default function EvaluationsPage() {
       if (evaluationsWithItems.length > 0 && !currentEvaluation) {
         loadEvaluation(evaluationsWithItems[0].id)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('評価の取得エラー:', error)
-      alert('評価の取得に失敗しました')
+      console.error('エラー詳細:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code
+      })
+      alert('評価の取得に失敗しました\n' + (error?.message || 'Unknown error'))
     } finally {
       setIsLoading(false)
     }
@@ -141,7 +147,7 @@ export default function EvaluationsPage() {
         .select(`
           *,
           period:evaluation_periods(id, name, template_id),
-          evaluatee:users!evaluatee_id(id, name)
+          evaluatee:users!evaluations_evaluatee_id_fkey(id, name)
         `)
         .eq('id', evaluationId)
         .single()
