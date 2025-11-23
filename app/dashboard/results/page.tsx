@@ -45,13 +45,7 @@ export default function ResultsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
 
-  useEffect(() => {
-    if (user) {
-      fetchEvaluations()
-    }
-  }, [user])
-
-  const fetchEvaluations = async () => {
+  const fetchEvaluations = useCallback(async () => {
     try {
       // 権限に応じた評価データを取得
       let query = supabase
@@ -120,7 +114,13 @@ export default function ResultsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, supabase])
+
+  useEffect(() => {
+    if (user) {
+      fetchEvaluations()
+    }
+  }, [user, fetchEvaluations])
 
   const getStageLabel = (stage: string) => {
     const labels: Record<string, string> = {

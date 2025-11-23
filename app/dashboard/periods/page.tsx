@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth, canManagePeriods } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -64,13 +64,7 @@ export default function PeriodsPage() {
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchPeriods()
-    fetchTemplates()
-    fetchUsers()
-  }, [])
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('evaluation_templates')
@@ -83,9 +77,9 @@ export default function PeriodsPage() {
     } catch (error) {
       console.error('テンプレートの取得エラー:', error)
     }
-  }
+  }, [supabase])
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -97,9 +91,9 @@ export default function PeriodsPage() {
     } catch (error) {
       console.error('ユーザーの取得エラー:', error)
     }
-  }
+  }, [supabase])
 
-  const fetchPeriods = async () => {
+  const fetchPeriods = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('evaluation_periods')
@@ -114,7 +108,13 @@ export default function PeriodsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchPeriods()
+    fetchTemplates()
+    fetchUsers()
+  }, [fetchPeriods, fetchTemplates, fetchUsers])
 
   const handleCreate = async () => {
     if (!user) return

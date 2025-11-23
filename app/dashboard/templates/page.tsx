@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth, canManageTemplates } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -54,11 +54,7 @@ export default function TemplatesPage() {
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchTemplates()
-  }, [])
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       // テンプレート取得
       const { data: templatesData, error: templatesError } = await supabase
@@ -93,7 +89,11 @@ export default function TemplatesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [fetchTemplates])
 
   const handleCreateTemplate = async () => {
     if (!user) return

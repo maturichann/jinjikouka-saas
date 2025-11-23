@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth, canEvaluateOthers } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -47,13 +47,7 @@ export default function EvaluationsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
-    if (user) {
-      fetchAvailableEvaluations()
-    }
-  }, [user])
-
-  const fetchAvailableEvaluations = async () => {
+  const fetchAvailableEvaluations = useCallback(async () => {
     if (!user) return
 
     try {
@@ -150,9 +144,9 @@ export default function EvaluationsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, supabase, currentEvaluation, loadEvaluation])
 
-  const loadEvaluation = async (evaluationId: string) => {
+  const loadEvaluation = useCallback(async (evaluationId: string) => {
     try {
       setIsLoading(true)
 
@@ -236,7 +230,13 @@ export default function EvaluationsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    if (user) {
+      fetchAvailableEvaluations()
+    }
+  }, [user, fetchAvailableEvaluations])
 
   const handleScoreChange = async (itemId: string, score: string) => {
     if (!currentEvaluation) return

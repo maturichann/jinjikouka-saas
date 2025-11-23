@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -64,11 +64,7 @@ export default function UsersPage() {
   const supabase = createClient()
 
   // ユーザー一覧を取得
-  useEffect(() => {
-    fetchUsers()
-  }, [])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -83,7 +79,11 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
 
   const getRoleBadge = (role: UserRole) => {
     const variants: Record<UserRole, { variant: "default" | "secondary" | "outline", label: string }> = {
