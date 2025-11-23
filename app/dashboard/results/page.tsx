@@ -23,6 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type EvaluationResult = {
   id: string
@@ -42,6 +49,8 @@ export default function ResultsPage() {
   const [periodFilter, setPeriodFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
+  const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationResult | null>(null)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
@@ -255,7 +264,7 @@ export default function ResultsPage() {
     return evaluations.filter(e => e.evaluatee === name)
   }
 
-  const handleExportPDF = (person: string) => {
+  const handleExportPDF = async (person: string) => {
     const personEvals = getPersonEvaluations(person)
     const pdfData: EvaluationPDFData = {
       evaluatee: person,
@@ -268,10 +277,10 @@ export default function ResultsPage() {
         submittedAt: e.submittedAt
       }))
     }
-    generateEvaluationPDF(pdfData)
+    await generateEvaluationPDF(pdfData)
   }
 
-  const handleExportAllPDF = () => {
+  const handleExportAllPDF = async () => {
     const allData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
       const personEvals = getPersonEvaluations(person)
       return {
@@ -286,10 +295,10 @@ export default function ResultsPage() {
         }))
       }
     })
-    generateMultipleEvaluationsPDF(allData)
+    await generateMultipleEvaluationsPDF(allData)
   }
 
-  const handleExportFilteredPDF = () => {
+  const handleExportFilteredPDF = async () => {
     const filteredData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
       const personEvals = filteredEvaluations.filter(e => e.evaluatee === person)
       return {
@@ -304,7 +313,7 @@ export default function ResultsPage() {
         }))
       }
     })
-    generateMultipleEvaluationsPDF(filteredData)
+    await generateMultipleEvaluationsPDF(filteredData)
   }
 
   if (!user) return null
@@ -444,7 +453,10 @@ export default function ResultsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => alert(`評価ID: ${evaluation.id}\n評価対象: ${evaluation.evaluatee}\n段階: ${getStageLabel(evaluation.stage)}\nスコア: ${evaluation.totalScore.toFixed(1)}`)}
+                          onClick={() => {
+                            setSelectedEvaluation(evaluation)
+                            setIsDetailDialogOpen(true)
+                          }}
                         >
                           詳細
                         </Button>
@@ -495,8 +507,10 @@ export default function ResultsPage() {
                             variant="outline"
                             onClick={() => {
                               const evals = getPersonEvaluations(person)
-                              const info = evals.map(e => `${getStageLabel(e.stage)}: ${e.totalScore.toFixed(1)}点 (${e.status === 'submitted' ? '提出済み' : '未提出'})`).join('\n')
-                              alert(`${person}さんの評価\n\n${info}`)
+                              if (evals.length > 0) {
+                                setSelectedEvaluation(evals[0])
+                                setIsDetailDialogOpen(true)
+                              }
                             }}
                           >
                             詳細を見る
@@ -607,6 +621,60 @@ export default function ResultsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 評価詳細ダイアログ */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>評価詳細</DialogTitle>
+            <DialogDescription>
+              評価の詳細情報を表示しています
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvaluation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-600">評価対象者</p>
+                  <p className="font-semibold">{selectedEvaluation.evaluatee}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">部署</p>
+                  <p className="font-semibold">{selectedEvaluation.department}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">評価期間</p>
+                  <p className="font-semibold">{selectedEvaluation.period}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">評価段階</p>
+                  <p className="font-semibold">{getStageBadge(selectedEvaluation.stage)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">ステータス</p>
+                  <p className="font-semibold">{getStatusBadge(selectedEvaluation.status)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">総合スコア</p>
+                  <p className="font-semibold text-2xl text-blue-600">
+                    {selectedEvaluation.status === 'submitted'
+                      ? selectedEvaluation.totalScore.toFixed(1)
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">提出日</p>
+                  <p className="font-semibold">{selectedEvaluation.submittedAt}</p>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded">
+                <p>※ 各評価項目の詳細スコアとコメントは、評価実施画面で確認できます。</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,11 +1,5 @@
 import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
-// 日本語フォントを設定（現在は無効化）
-function setupJapaneseFont(doc: jsPDF) {
-  // 日本語フォントは一旦無効化（クライアントサイドでの問題回避）
-  // TODO: サーバーサイドPDF生成に移行する
-}
+import html2canvas from 'html2canvas'
 
 export type EvaluationPDFData = {
   evaluatee: string
@@ -27,110 +21,69 @@ export type EvaluationPDFData = {
   }[]
 }
 
-export function generateEvaluationPDF(data: EvaluationPDFData) {
-  const doc = new jsPDF()
+export async function generateEvaluationPDF(data: EvaluationPDFData) {
+  // HTMLコンテンツを生成
+  const evaluationsHTML = data.evaluations.map(evaluation => `
+    <div style="margin-bottom: 30px; page-break-inside: avoid;">
+      <div style="background: #3b82f6; color: white; padding: 12px; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
+        <h3 style="margin: 0; font-size: 18px;">${evaluation.stage} - スコア: ${evaluation.totalScore.toFixed(1)}</h3>
+      </div>
+      <div style="padding: 12px; background: #f9fafb; border-radius: 0 0 8px 8px;">
+        <p style="margin: 5px 0;"><strong>ステータス:</strong> ${evaluation.status}</p>
+        <p style="margin: 5px 0;"><strong>提出日:</strong> ${evaluation.submittedAt}</p>
+      </div>
+    </div>
+  `).join('')
 
-  // 日本語フォントを設定
-  setupJapaneseFont(doc)
+  const summaryHTML = `
+    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+      <thead>
+        <tr style="background: #22c55e; color: white;">
+          <th style="padding: 10px; border: 1px solid #ddd;">評価段階</th>
+          <th style="padding: 10px; border: 1px solid #ddd;">総合スコア</th>
+          <th style="padding: 10px; border: 1px solid #ddd;">ステータス</th>
+          <th style="padding: 10px; border: 1px solid #ddd;">提出日</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.evaluations.map((e, i) => `
+          <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
+            <td style="padding: 10px; border: 1px solid #ddd;">${e.stage}</td>
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${e.totalScore.toFixed(1)}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${e.submittedAt}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
 
-  // タイトル
-  doc.setFontSize(20)
-  doc.text('評価レポート', 14, 22)
-  doc.setFontSize(12)
+  const htmlContent = `
+    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
+      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
+        評価レポート
+      </h1>
 
-  // 基本情報
-  doc.text(`評価対象者: ${data.evaluatee}`, 14, 35)
-  doc.text(`部署: ${data.department}`, 14, 42)
-  doc.text(`評価期間: ${data.period}`, 14, 49)
+      <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #3b82f6;">
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価対象者:</strong> ${data.evaluatee}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>部署:</strong> ${data.department}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.period}</p>
+      </div>
 
-  let yPos = 60
+      <h2 style="font-size: 20px; margin: 25px 0 15px; color: #1e40af; border-left: 4px solid #3b82f6; padding-left: 12px;">
+        評価詳細
+      </h2>
+      ${evaluationsHTML}
 
-  // 各評価段階
-  data.evaluations.forEach((evaluation, index) => {
-    if (yPos > 250) {
-      doc.addPage()
-      yPos = 20
-    }
+      <h2 style="font-size: 20px; margin: 30px 0 15px; color: #1e40af; border-left: 4px solid #22c55e; padding-left: 12px;">
+        サマリー
+      </h2>
+      ${summaryHTML}
+    </div>
+  `
 
-    // 評価段階のヘッダー
-    doc.setFontSize(14)
-    doc.setFillColor(59, 130, 246)
-    doc.rect(14, yPos - 5, 182, 10, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.text(`${evaluation.stage} - スコア: ${evaluation.totalScore.toFixed(1)}`, 16, yPos + 2)
-    doc.setTextColor(0, 0, 0)
-
-    yPos += 12
-
-    doc.setFontSize(10)
-    doc.text(`ステータス: ${evaluation.status} | 提出日: ${evaluation.submittedAt}`, 14, yPos)
-    yPos += 10
-
-    // 評価項目がある場合
-    if (evaluation.items && evaluation.items.length > 0) {
-      const tableData = evaluation.items.map(item => [
-        item.name,
-        item.weight.toString(),
-        item.score.toFixed(1),
-        (item.score * item.weight).toFixed(1),
-        item.comment || '-'
-      ])
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['項目', 'ウェイト', 'スコア', '加重', 'コメント']],
-        body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 9, cellPadding: 3 },
-        columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 75 }
-        }
-      })
-
-      yPos = (doc as any).lastAutoTable.finalY + 10
-    } else {
-      yPos += 5
-    }
-  })
-
-  // 総合評価サマリー
-  if (yPos > 230) {
-    doc.addPage()
-    yPos = 20
-  }
-
-  doc.setFontSize(14)
-  doc.text('サマリー', 14, yPos)
-  yPos += 10
-
-  const summaryData = data.evaluations.map(e => [
-    e.stage,
-    e.totalScore.toFixed(1),
-    e.status,
-    e.submittedAt
-  ])
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['評価段階', '総合スコア', 'ステータス', '提出日']],
-    body: summaryData,
-    theme: 'striped',
-    headStyles: { fillColor: [34, 197, 94] },
-    styles: { fontSize: 10 }
-  })
-
-  // ページ番号
-  const pageCount = doc.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFontSize(10)
-    doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10)
-  }
+  // HTMLからPDFを生成
+  const doc = await createPDFFromHTML(htmlContent)
 
   // ファイル名を生成
   const fileName = `evaluation_${data.evaluatee.replace(/\s+/g, '_')}_${Date.now()}.pdf`
@@ -139,48 +92,96 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
   doc.save(fileName)
 }
 
-export function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFData[]) {
-  const doc = new jsPDF()
+export async function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFData[]) {
+  const itemsHTML = evaluationsData.map((data, index) => `
+    <div style="margin-bottom: 40px; page-break-inside: avoid; ${index > 0 ? 'page-break-before: always;' : ''}">
+      <h2 style="font-size: 22px; margin-bottom: 15px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">
+        ${index + 1}. ${data.evaluatee}
+      </h2>
+      <p style="margin: 8px 0; color: #6b7280;"><strong>部署:</strong> ${data.department} | <strong>評価期間:</strong> ${data.period}</p>
 
-  // 日本語フォントを設定
-  setupJapaneseFont(doc)
+      <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+          <tr style="background: #3b82f6; color: white;">
+            <th style="padding: 10px; border: 1px solid #ddd;">評価段階</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">総合スコア</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">ステータス</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.evaluations.map((e, i) => `
+            <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
+              <td style="padding: 10px; border: 1px solid #ddd;">${e.stage}</td>
+              <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${e.totalScore.toFixed(1)}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('')
 
-  doc.setFontSize(18)
-  doc.text('評価レポート - 複数対象者', 14, 22)
+  const htmlContent = `
+    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
+      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
+        評価レポート - 複数対象者
+      </h1>
+      ${itemsHTML}
+    </div>
+  `
 
-  let startY = 35
-
-  evaluationsData.forEach((data, index) => {
-    if (index > 0) {
-      doc.addPage()
-      startY = 20
-    }
-
-    doc.setFontSize(14)
-    doc.text(`${index + 1}. ${data.evaluatee}`, 14, startY)
-    startY += 8
-
-    doc.setFontSize(10)
-    doc.text(`部署: ${data.department} | 評価期間: ${data.period}`, 14, startY)
-    startY += 10
-
-    const summaryData = data.evaluations.map(e => [
-      e.stage,
-      e.totalScore.toFixed(1),
-      e.status
-    ])
-
-    autoTable(doc, {
-      startY: startY,
-      head: [['評価段階', '総合スコア', 'ステータス']],
-      body: summaryData,
-      theme: 'grid',
-      styles: { fontSize: 9 }
-    })
-
-    startY = (doc as any).lastAutoTable.finalY + 15
-  })
+  // HTMLからPDFを生成
+  const doc = await createPDFFromHTML(htmlContent)
 
   const fileName = `evaluations_report_${Date.now()}.pdf`
   doc.save(fileName)
+}
+
+// HTMLからPDF生成するヘルパー関数
+async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
+  const doc = new jsPDF('p', 'mm', 'a4')
+
+  // 一時的なDIV要素を作成
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = htmlContent
+  tempDiv.style.position = 'absolute'
+  tempDiv.style.left = '-9999px'
+  tempDiv.style.width = '800px'
+  tempDiv.style.backgroundColor = '#ffffff'
+  document.body.appendChild(tempDiv)
+
+  try {
+    // HTMLをcanvasに変換
+    const canvas = await html2canvas(tempDiv, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true
+    })
+
+    // canvasを画像に変換してPDFに追加
+    const imgData = canvas.toDataURL('image/png')
+    const imgWidth = 190 // A4サイズに合わせる (210mm - 20mm margin)
+    const pageHeight = 277 // A4サイズの高さ (297mm - 20mm margin)
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    let heightLeft = imgHeight
+    let position = 10
+
+    // 最初のページに画像を追加
+    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+    heightLeft -= pageHeight
+
+    // 必要に応じて追加ページを作成
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + 10
+      doc.addPage()
+      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+    }
+  } finally {
+    // 一時DIVを削除
+    document.body.removeChild(tempDiv)
+  }
+
+  return doc
 }
