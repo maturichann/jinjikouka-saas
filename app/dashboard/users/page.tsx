@@ -37,22 +37,13 @@ type User = {
   created_at: string
 }
 
-// パスワード自動生成関数
-const generatePassword = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  let password = ''
-  for (let i = 0; i < 8; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return password
-}
-
 export default function UsersPage() {
   const { user } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false)
   const [generatedPassword, setGeneratedPassword] = useState("")
   const [newUser, setNewUser] = useState({
     staff_code: "",
@@ -61,6 +52,8 @@ export default function UsersPage() {
     department: ""
   })
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
+  const [newPasswordInput, setNewPasswordInput] = useState("")
   const supabase = createClient()
 
   // ユーザー一覧を取得
@@ -177,18 +170,26 @@ export default function UsersPage() {
     }
   }
 
-  const handleResetPassword = async (userId: string) => {
-    const newPassword = generatePassword()
+  const handleResetPassword = async () => {
+    if (!resetPasswordUserId || !newPasswordInput.trim()) {
+      alert('新しいパスワードを入力してください')
+      return
+    }
 
     try {
       const { error } = await supabase
         .from('users')
-        .update({ password_hash: newPassword })
-        .eq('id', userId)
+        .update({ password_hash: newPasswordInput })
+        .eq('id', resetPasswordUserId)
 
       if (error) throw error
 
-      alert(`新しいパスワード: ${newPassword}\n\nこのパスワードをユーザーに伝えてください。`)
+      alert(`パスワードを更新しました: ${newPasswordInput}\n\nこのパスワードをユーザーに伝えてください。`)
+
+      // ダイアログを閉じて状態をリセット
+      setIsResetPasswordDialogOpen(false)
+      setResetPasswordUserId(null)
+      setNewPasswordInput("")
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -338,7 +339,10 @@ export default function UsersPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleResetPassword(u.id)}
+                        onClick={() => {
+                          setResetPasswordUserId(u.id)
+                          setIsResetPasswordDialogOpen(true)
+                        }}
                       >
                         パスワード再発行
                       </Button>
@@ -408,6 +412,31 @@ export default function UsersPage() {
               </select>
             </div>
             <Button onClick={handleEditUser} className="w-full">更新</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>パスワードを再発行</DialogTitle>
+            <DialogDescription>
+              新しいパスワードを入力してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">新しいパスワード</Label>
+              <Input
+                id="new-password"
+                type="text"
+                placeholder="新しいパスワードを入力"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleResetPassword} className="w-full">パスワードを更新</Button>
           </div>
         </DialogContent>
       </Dialog>
