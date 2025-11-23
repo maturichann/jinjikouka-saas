@@ -30,6 +30,7 @@ type EvaluationItem = {
   description: string
   weight: number
   criteria: string
+  category?: string
 }
 
 type Template = {
@@ -49,7 +50,7 @@ export default function TemplatesPage() {
   const [isEditTemplateDialogOpen, setIsEditTemplateDialogOpen] = useState(false)
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false)
   const [newTemplate, setNewTemplate] = useState({ name: "", description: "" })
-  const [newItem, setNewItem] = useState({ name: "", description: "", weight: 0, criteria: "" })
+  const [newItem, setNewItem] = useState({ name: "", description: "", weight: 0, criteria: "", category: "" })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
   const supabase = createClient()
@@ -133,13 +134,14 @@ export default function TemplatesPage() {
           description: newItem.description,
           weight: newItem.weight,
           criteria: newItem.criteria,
+          category: newItem.category || null,
           order_index: currentItemsCount
         }])
         .select()
 
       if (error) throw error
 
-      setNewItem({ name: "", description: "", weight: 0, criteria: "" })
+      setNewItem({ name: "", description: "", weight: 0, criteria: "", category: "" })
       setIsItemDialogOpen(false)
       fetchTemplates()
     } catch (error) {
@@ -181,7 +183,8 @@ export default function TemplatesPage() {
           name: editingItem.name,
           description: editingItem.description,
           weight: editingItem.weight,
-          criteria: editingItem.criteria
+          criteria: editingItem.criteria,
+          category: editingItem.category || null
         })
         .eq('id', editingItem.id)
 
@@ -403,6 +406,18 @@ export default function TemplatesPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
+                        <Label htmlFor="item-category">大項目（カテゴリー）</Label>
+                        <Input
+                          id="item-category"
+                          placeholder="例: 行動評価、業績評価"
+                          value={newItem.category}
+                          onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          同じカテゴリー名の項目がグループ化されます
+                        </p>
+                      </div>
+                      <div>
                         <Label htmlFor="item-name">項目名</Label>
                         <Input
                           id="item-name"
@@ -451,6 +466,7 @@ export default function TemplatesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>カテゴリー</TableHead>
                     <TableHead>項目名</TableHead>
                     <TableHead>説明</TableHead>
                     <TableHead>配点</TableHead>
@@ -459,43 +475,62 @@ export default function TemplatesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {template.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.description}</TableCell>
-                      <TableCell>{item.weight}点</TableCell>
-                      <TableCell className="max-w-xs">
-                        <div className="text-xs whitespace-pre-line text-gray-600">
-                          {item.criteria || "未設定"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingItem(item)
-                              setSelectedTemplate(template)
-                              setIsEditItemDialogOpen(true)
-                            }}
-                          >
-                            編集
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteItem(template.id, item.id)}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    // カテゴリーでグループ化
+                    const grouped = template.items.reduce((acc: Record<string, typeof template.items>, item) => {
+                      const category = item.category || "未分類"
+                      if (!acc[category]) acc[category] = []
+                      acc[category].push(item)
+                      return acc
+                    }, {})
+
+                    return Object.entries(grouped).map(([category, items], catIdx) => (
+                      <>
+                        {items.map((item, itemIdx) => (
+                          <TableRow key={item.id} className={itemIdx === 0 ? "border-t-2 border-blue-200" : ""}>
+                            {itemIdx === 0 && (
+                              <TableCell rowSpan={items.length} className="font-bold bg-blue-50 text-blue-900 align-top">
+                                {category}
+                              </TableCell>
+                            )}
+                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell>{item.description}</TableCell>
+                            <TableCell>{item.weight}点</TableCell>
+                            <TableCell className="max-w-xs">
+                              <div className="text-xs whitespace-pre-line text-gray-600">
+                                {item.criteria || "未設定"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingItem(item)
+                                    setSelectedTemplate(template)
+                                    setIsEditItemDialogOpen(true)
+                                  }}
+                                >
+                                  編集
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDeleteItem(template.id, item.id)}
+                                >
+                                  削除
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    ))
+                  })()}
                   {template.items.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-gray-500">
+                      <TableCell colSpan={6} className="text-center text-gray-500">
                         評価項目が登録されていません
                       </TableCell>
                     </TableRow>
@@ -556,6 +591,18 @@ export default function TemplatesPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-item-category">大項目（カテゴリー）</Label>
+                <Input
+                  id="edit-item-category"
+                  placeholder="例: 行動評価、業績評価"
+                  value={editingItem?.category || ""}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, category: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  同じカテゴリー名の項目がグループ化されます
+                </p>
+              </div>
               <div>
                 <Label htmlFor="edit-item-name">項目名</Label>
                 <Input
