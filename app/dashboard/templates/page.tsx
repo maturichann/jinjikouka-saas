@@ -197,9 +197,66 @@ export default function TemplatesPage() {
   }
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("このテンプレートを削除してもよろしいですか？")) return
+    if (!confirm("このテンプレートを削除してもよろしいですか？\n\n※ このテンプレートに関連する評価項目、評価、評価スコアも全て削除されます。")) return
 
     try {
+      // 1. このテンプレートの評価項目IDを取得
+      const { data: items, error: itemsError } = await supabase
+        .from('evaluation_items')
+        .select('id')
+        .eq('template_id', templateId)
+
+      if (itemsError) throw itemsError
+
+      const itemIds = (items || []).map(item => item.id)
+
+      if (itemIds.length > 0) {
+        // 2. 評価項目に関連する評価スコアを削除
+        const { error: scoresError } = await supabase
+          .from('evaluation_scores')
+          .delete()
+          .in('item_id', itemIds)
+
+        if (scoresError) throw scoresError
+
+        // 3. 評価項目を削除
+        const { error: deleteItemsError } = await supabase
+          .from('evaluation_items')
+          .delete()
+          .eq('template_id', templateId)
+
+        if (deleteItemsError) throw deleteItemsError
+      }
+
+      // 4. このテンプレートを使用している評価期間があれば削除
+      const { data: periods, error: periodsError } = await supabase
+        .from('evaluation_periods')
+        .select('id')
+        .eq('template_id', templateId)
+
+      if (periodsError) throw periodsError
+
+      const periodIds = (periods || []).map(p => p.id)
+
+      if (periodIds.length > 0) {
+        // 5. 評価期間に関連する評価を削除
+        const { error: deleteEvalsError } = await supabase
+          .from('evaluations')
+          .delete()
+          .in('period_id', periodIds)
+
+        if (deleteEvalsError) throw deleteEvalsError
+
+        // 6. 評価期間を削除
+        const { error: deletePeriodsError } = await supabase
+          .from('evaluation_periods')
+          .delete()
+          .eq('template_id', templateId)
+
+        if (deletePeriodsError) throw deletePeriodsError
+      }
+
+      // 7. 最後にテンプレートを削除
       const { error } = await supabase
         .from('evaluation_templates')
         .delete()
@@ -207,10 +264,11 @@ export default function TemplatesPage() {
 
       if (error) throw error
 
+      alert('テンプレートと関連データを削除しました')
       fetchTemplates()
     } catch (error) {
       console.error('テンプレートの削除エラー:', error)
-      alert('テンプレートの削除に失敗しました')
+      alert('テンプレートの削除に失敗しました: ' + (error as Error).message)
     }
   }
 
