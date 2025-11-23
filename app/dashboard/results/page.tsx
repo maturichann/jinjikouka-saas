@@ -273,11 +273,11 @@ export default function ResultsPage() {
 
   // 全ての部署と評価期間のリストを取得
   const uniqueDepartments = useMemo(() => {
-    return Array.from(new Set(evaluations.map(e => e.department))).sort()
+    return Array.from(new Set(evaluations.map(e => e.department).filter(d => d !== ''))).sort()
   }, [evaluations])
 
   const uniquePeriods = useMemo(() => {
-    return Array.from(new Set(evaluations.map(e => e.period))).sort()
+    return Array.from(new Set(evaluations.map(e => e.period).filter(p => p !== ''))).sort()
   }, [evaluations])
 
   // 権限に基づいてフィルタリング
