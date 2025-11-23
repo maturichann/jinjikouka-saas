@@ -146,18 +146,28 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("このユーザーを削除してもよろしいですか？")) return
+    if (!confirm("このユーザーを削除してもよろしいですか？\n\n注意: このユーザーに関連する全ての評価データも削除されます。")) return
 
     try {
-      const { error } = await supabase
+      // 関連する評価を削除（evaluation_scoresは外部キー制約でカスケード削除される）
+      const { error: evalError } = await supabase
+        .from('evaluations')
+        .delete()
+        .eq('evaluatee_id', userId)
+
+      if (evalError) throw evalError
+
+      // ユーザーを削除
+      const { error: userError } = await supabase
         .from('users')
         .delete()
         .eq('id', userId)
 
-      if (error) throw error
+      if (userError) throw userError
 
       // ユーザーリストを再取得
       fetchUsers()
+      alert('ユーザーと関連する評価データを削除しました')
     } catch (error) {
       console.error('ユーザーの削除エラー:', error)
       alert('ユーザーの削除に失敗しました')
