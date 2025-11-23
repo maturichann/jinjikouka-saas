@@ -503,7 +503,7 @@ export default function EvaluationsPage() {
                   <div>
                     <Label htmlFor={`grade-${item.id}`}>評価グレード</Label>
                     <Select
-                      value={item.grade || ''}
+                      value={item.grade || undefined}
                       onValueChange={(value) => handleGradeChange(item.id, value)}
                     >
                       <SelectTrigger className="max-w-xs">
