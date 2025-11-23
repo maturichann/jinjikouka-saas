@@ -40,6 +40,14 @@ type EvaluationResult = {
   status: 'pending' | 'submitted'
   totalScore: number
   submittedAt: string
+  items?: {
+    name: string
+    description: string
+    weight: number
+    score: number
+    comment: string
+    criteria?: string
+  }[]
 }
 
 export default function ResultsPage() {
@@ -131,7 +139,8 @@ export default function ResultsPage() {
             .from('evaluation_scores')
             .select(`
               score,
-              item:evaluation_items(weight)
+              comment,
+              item:evaluation_items(name, description, weight, criteria)
             `)
             .eq('evaluation_id', evaluation.id)
 
@@ -147,6 +156,16 @@ export default function ResultsPage() {
             totalScore = totalWeight > 0 ? weightedScore / totalWeight : 0
           }
 
+          // 評価項目の詳細データを整形
+          const items = scoresData?.map((s: any) => ({
+            name: s.item?.name || '',
+            description: s.item?.description || '',
+            weight: s.item?.weight || 0,
+            score: s.score || 0,
+            comment: s.comment || '',
+            criteria: s.item?.criteria || ''
+          })) || []
+
           return {
             id: evaluation.id,
             evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
@@ -156,7 +175,8 @@ export default function ResultsPage() {
             status: evaluation.status,
             totalScore,
             submittedAt: evaluation.submitted_at ?
-              new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-'
+              new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
+            items
           }
         })
       )
@@ -668,9 +688,40 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded">
-                <p>※ 各評価項目の詳細スコアとコメントは、評価実施画面で確認できます。</p>
-              </div>
+              {selectedEvaluation.status === 'submitted' && selectedEvaluation.items && selectedEvaluation.items.length > 0 ? (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">評価項目の詳細</h3>
+                  {selectedEvaluation.items.map((item, idx) => (
+                    <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <div className="text-2xl font-bold text-blue-600">{item.score}</div>
+                          <div className="text-xs text-gray-500">重み: {item.weight}</div>
+                        </div>
+                      </div>
+                      {item.criteria && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                          <p className="text-gray-700"><strong>評価基準:</strong> {item.criteria}</p>
+                        </div>
+                      )}
+                      {item.comment && (
+                        <div className="mt-2 p-3 bg-white rounded border border-gray-200">
+                          <p className="text-sm text-gray-600 font-semibold mb-1">コメント:</p>
+                          <p className="text-sm text-gray-800">{item.comment}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded">
+                  <p>※ 評価が未提出のため、詳細スコアとコメントはまだ表示されません。</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
