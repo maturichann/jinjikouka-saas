@@ -148,7 +148,45 @@ export default function ResultsPage() {
             `)
             .eq('evaluation_id', evaluation.id)
 
-          if (scoresError) throw scoresError
+          if (scoresError) {
+            console.error('スコアデータ取得エラー:', scoresError)
+            // gradeカラムが存在しない場合は、gradeなしで取得を試みる
+            const { data: scoresDataWithoutGrade, error: fallbackError } = await supabase
+              .from('evaluation_scores')
+              .select(`
+                score,
+                comment,
+                item:evaluation_items(name, description, weight, criteria)
+              `)
+              .eq('evaluation_id', evaluation.id)
+
+            if (fallbackError) throw fallbackError
+
+            // gradeなしのデータを使用
+            const totalScore = scoresDataWithoutGrade?.reduce((sum, s: any) => sum + (s.score || 0), 0) || 0
+            const items = scoresDataWithoutGrade?.map((s: any) => ({
+              name: s.item?.name || '',
+              description: s.item?.description || '',
+              weight: s.item?.weight || 0,
+              score: s.score || 0,
+              comment: s.comment || '',
+              criteria: s.item?.criteria || '',
+              grade: ''
+            })) || []
+
+            return {
+              id: evaluation.id,
+              evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
+              period: periodsMap.get(evaluation.period_id)?.name || '',
+              department: usersMap.get(evaluation.evaluatee_id)?.department || '',
+              stage: evaluation.stage,
+              status: evaluation.status,
+              totalScore,
+              submittedAt: evaluation.submitted_at ?
+                new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
+              items
+            }
+          }
 
           // 単純合計を計算
           let totalScore = 0
