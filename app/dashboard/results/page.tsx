@@ -441,7 +441,13 @@ export default function ResultsPage() {
                       </TableCell>
                       <TableCell>{evaluation.submittedAt}</TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">詳細</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => alert(`評価ID: ${evaluation.id}\n評価対象: ${evaluation.evaluatee}\n段階: ${getStageLabel(evaluation.stage)}\nスコア: ${evaluation.totalScore.toFixed(1)}`)}
+                        >
+                          詳細
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -485,7 +491,16 @@ export default function ResultsPage() {
                           <Button variant="outline" onClick={() => handleExportPDF(person)}>
                             PDFエクスポート
                           </Button>
-                          <Button variant="outline">詳細を見る</Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const evals = getPersonEvaluations(person)
+                              const info = evals.map(e => `${getStageLabel(e.stage)}: ${e.totalScore.toFixed(1)}点 (${e.status === 'submitted' ? '提出済み' : '未提出'})`).join('\n')
+                              alert(`${person}さんの評価\n\n${info}`)
+                            }}
+                          >
+                            詳細を見る
+                          </Button>
                         </div>
                       </div>
                     </CardHeader>
