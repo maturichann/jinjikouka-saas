@@ -63,12 +63,25 @@ export default function EvaluationsPage() {
 
         if (error) throw error
         evaluationsData = data || []
+      } else if (user.role === 'staff') {
+        // スタッフは本人評価（self stage）のみ
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluatee_id', user.id)
+          .eq('stage', 'self')
+          .in('status', ['pending', 'in_progress'])
+
+        if (error) throw error
+        evaluationsData = data || []
       } else {
+        // 店長・MGの場合
         // 本人の評価（self stage）を取得
         const { data: selfEvals, error: selfError } = await supabase
           .from('evaluations')
           .select('*')
           .eq('evaluatee_id', user.id)
+          .eq('stage', 'self')
           .in('status', ['pending', 'in_progress'])
 
         if (selfError) throw selfError
