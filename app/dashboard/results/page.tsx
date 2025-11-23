@@ -46,11 +46,13 @@ export default function ResultsPage() {
   const supabase = createClient()
 
   const fetchEvaluations = useCallback(async () => {
+    if (!user) return
+
     try {
       // 権限に応じた評価データを取得
       let evaluationsData = []
 
-      if (user?.role === 'admin' || user?.role === 'mg') {
+      if (user.role === 'admin' || user.role === 'mg') {
         // 管理者とMGは全ての評価を閲覧可能
         const { data, error } = await supabase
           .from('evaluations')
@@ -59,7 +61,7 @@ export default function ResultsPage() {
 
         if (error) throw error
         evaluationsData = data || []
-      } else if (user?.role === 'manager') {
+      } else if (user.role === 'manager') {
         // 店長は自部署の評価のみ閲覧可能
         // まず自部署のユーザーIDを取得
         const { data: deptUsers, error: deptError } = await supabase
@@ -84,7 +86,7 @@ export default function ResultsPage() {
         const { data, error } = await supabase
           .from('evaluations')
           .select('*')
-          .eq('evaluatee_id', user?.id)
+          .eq('evaluatee_id', user.id)
           .order('created_at', { ascending: false })
 
         if (error) throw error
