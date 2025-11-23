@@ -112,12 +112,6 @@ export default function UsersPage() {
 
       // ユーザーリストを再取得
       fetchUsers()
-
-      // パスワード表示のため、すぐにダイアログを閉じない
-      setTimeout(() => {
-        setIsDialogOpen(false)
-        setGeneratedPassword("")
-      }, 5000)
     } catch (error) {
       console.error('ユーザーの作成エラー:', error)
       alert('ユーザーの作成に失敗しました')
@@ -219,7 +213,12 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold">ユーザー管理</h1>
           <p className="text-gray-600 mt-2">社員の登録・編集・削除</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open)
+          if (!open) {
+            setGeneratedPassword("")
+          }
+        }}>
           <DialogTrigger asChild>
             <Button>新しいユーザーを追加</Button>
           </DialogTrigger>
@@ -282,7 +281,7 @@ export default function UsersPage() {
                     {generatedPassword}
                   </p>
                   <p className="text-xs text-green-700 mt-2">
-                    このパスワードをユーザーに伝えてください。（5秒後に閉じます）
+                    このパスワードをユーザーに伝えてください。
                   </p>
                 </div>
               ) : (
