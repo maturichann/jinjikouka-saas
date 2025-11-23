@@ -294,7 +294,8 @@ export default function ResultsPage() {
         stage: getStageLabel(e.stage),
         status: e.status === 'submitted' ? '提出済み' : '未提出',
         totalScore: e.totalScore,
-        submittedAt: e.submittedAt
+        submittedAt: e.submittedAt,
+        items: e.items
       }))
     }
     await generateEvaluationPDF(pdfData)
@@ -311,7 +312,8 @@ export default function ResultsPage() {
           stage: getStageLabel(e.stage),
           status: e.status === 'submitted' ? '提出済み' : '未提出',
           totalScore: e.totalScore,
-          submittedAt: e.submittedAt
+          submittedAt: e.submittedAt,
+          items: e.items
         }))
       }
     })
@@ -329,7 +331,8 @@ export default function ResultsPage() {
           stage: getStageLabel(e.stage),
           status: e.status === 'submitted' ? '提出済み' : '未提出',
           totalScore: e.totalScore,
-          submittedAt: e.submittedAt
+          submittedAt: e.submittedAt,
+          items: e.items
         }))
       }
     })
