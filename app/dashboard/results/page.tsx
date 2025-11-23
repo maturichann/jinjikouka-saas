@@ -136,9 +136,12 @@ export default function ResultsPage() {
       const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
       const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
 
+      // 削除されたユーザーの評価を除外
+      const validEvaluations = evaluationsData.filter(e => usersMap.has(e.evaluatee_id))
+
       // 各評価のスコアを取得して総合点を計算
       const evaluationsWithScores = await Promise.all(
-        evaluationsData.map(async (evaluation) => {
+        validEvaluations.map(async (evaluation) => {
           const { data: scoresData, error: scoresError } = await supabase
             .from('evaluation_scores')
             .select(`

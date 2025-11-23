@@ -131,7 +131,10 @@ export default function EvaluationsPage() {
       const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
       const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
 
-      const evaluationsWithItems = evaluationsData.map(evaluation => {
+      // 削除されたユーザーの評価を除外
+      const validEvaluations = evaluationsData.filter(e => usersMap.has(e.evaluatee_id))
+
+      const evaluationsWithItems = validEvaluations.map(evaluation => {
         const evaluatee = usersMap.get(evaluation.evaluatee_id)
         const period = periodsMap.get(evaluation.period_id)
 
