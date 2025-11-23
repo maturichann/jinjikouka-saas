@@ -48,31 +48,73 @@ export default function ResultsPage() {
   const fetchEvaluations = useCallback(async () => {
     try {
       // 権限に応じた評価データを取得
-      let query = supabase
-        .from('evaluations')
-        .select(`
-          *,
-          period:evaluation_periods(name),
-          evaluatee:users!evaluatee_id(name, department)
-        `)
+      let evaluationsData = []
 
-      // 権限別フィルタリング
-      if (user?.role === 'staff') {
-        // スタッフは自分が評価者の評価のみ（自己評価のみ）
-        query = query.eq('evaluator_id', user.id).eq('stage', 'self')
+      if (user?.role === 'admin' || user?.role === 'mg') {
+        // 管理者とMGは全ての評価を閲覧可能
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        evaluationsData = data || []
       } else if (user?.role === 'manager') {
-        // 店長は自部署の評価のみ
-        query = query.eq('evaluatee.department', user.department)
+        // 店長は自部署の評価のみ閲覧可能
+        // まず自部署のユーザーIDを取得
+        const { data: deptUsers, error: deptError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('department', user.department)
+
+        if (deptError) throw deptError
+
+        const deptUserIds = (deptUsers || []).map(u => u.id)
+
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .in('evaluatee_id', deptUserIds)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        evaluationsData = data || []
+      } else {
+        // スタッフは自分の評価のみ閲覧可能
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluatee_id', user?.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        evaluationsData = data || []
       }
-      // mg と admin はすべての評価を閲覧可能（フィルタなし）
 
-      const { data: evaluationsData, error: evalError } = await query.order('created_at', { ascending: false })
+      // 評価期間情報を取得
+      const periodIds = [...new Set(evaluationsData.map(e => e.period_id))]
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('evaluation_periods')
+        .select('id, name')
+        .in('id', periodIds)
 
-      if (evalError) throw evalError
+      if (periodsError) throw periodsError
+
+      // ユーザー情報を取得
+      const userIds = [...new Set(evaluationsData.map(e => e.evaluatee_id))]
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, department')
+        .in('id', userIds)
+
+      if (usersError) throw usersError
+
+      const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
+      const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
 
       // 各評価のスコアを取得して総合点を計算
       const evaluationsWithScores = await Promise.all(
-        (evaluationsData || []).map(async (evaluation) => {
+        evaluationsData.map(async (evaluation) => {
           const { data: scoresData, error: scoresError } = await supabase
             .from('evaluation_scores')
             .select(`
@@ -95,9 +137,9 @@ export default function ResultsPage() {
 
           return {
             id: evaluation.id,
-            evaluatee: evaluation.evaluatee?.name || '',
-            period: evaluation.period?.name || '',
-            department: evaluation.evaluatee?.department || '',
+            evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
+            period: periodsMap.get(evaluation.period_id)?.name || '',
+            department: usersMap.get(evaluation.evaluatee_id)?.department || '',
             stage: evaluation.stage,
             status: evaluation.status,
             totalScore,
