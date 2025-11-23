@@ -26,6 +26,9 @@ type EvaluationItem = {
   criteria: string
   score: number
   comment: string
+  grade?: string
+  grade_scores?: { A: number; B: number; C: number; D: number; E: number }
+  grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
 }
 
 type Evaluation = {
@@ -229,7 +232,10 @@ export default function EvaluationsPage() {
           weight: item.weight,
           criteria: item.criteria || '',
           score: existingScore?.score || 0,
-          comment: existingScore?.comment || ''
+          comment: existingScore?.comment || '',
+          grade: existingScore?.grade || '',
+          grade_scores: item.grade_scores || { A: 5, B: 4, C: 3, D: 2, E: 1 },
+          grade_criteria: item.grade_criteria || { A: '', B: '', C: '', D: '', E: '' }
         }
       })
 
@@ -257,14 +263,17 @@ export default function EvaluationsPage() {
     }
   }, [user, fetchAvailableEvaluations])
 
-  const handleScoreChange = async (itemId: string, score: string) => {
+  const handleGradeChange = async (itemId: string, grade: string) => {
     if (!currentEvaluation) return
 
-    const scoreValue = parseFloat(score) || 0
-    if (scoreValue < 1.0 || scoreValue > 5.0) return
+    const item = currentEvaluation.items.find(i => i.id === itemId)
+    if (!item) return
 
-    const updatedItems = currentEvaluation.items.map(item =>
-      item.id === itemId ? { ...item, score: scoreValue } : item
+    // グレードに対応する点数を取得
+    const score = item.grade_scores?.[grade as keyof typeof item.grade_scores] || 0
+
+    const updatedItems = currentEvaluation.items.map(i =>
+      i.id === itemId ? { ...i, grade, score } : i
     )
 
     setCurrentEvaluation({
@@ -273,14 +282,17 @@ export default function EvaluationsPage() {
     })
 
     // 自動保存
-    await saveScore(itemId, scoreValue, currentEvaluation.items.find(i => i.id === itemId)?.comment || '')
+    await saveScore(itemId, score, item.comment || '', grade)
   }
 
   const handleCommentChange = async (itemId: string, comment: string) => {
     if (!currentEvaluation) return
 
-    const updatedItems = currentEvaluation.items.map(item =>
-      item.id === itemId ? { ...item, comment } : item
+    const item = currentEvaluation.items.find(i => i.id === itemId)
+    if (!item) return
+
+    const updatedItems = currentEvaluation.items.map(i =>
+      i.id === itemId ? { ...i, comment } : i
     )
 
     setCurrentEvaluation({
@@ -289,10 +301,10 @@ export default function EvaluationsPage() {
     })
 
     // 自動保存
-    await saveScore(itemId, currentEvaluation.items.find(i => i.id === itemId)?.score || 0, comment)
+    await saveScore(itemId, item.score || 0, comment, item.grade || '')
   }
 
-  const saveScore = async (itemId: string, score: number, comment: string) => {
+  const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
     if (!currentEvaluation || score === 0) return
 
     try {
@@ -302,7 +314,8 @@ export default function EvaluationsPage() {
           evaluation_id: currentEvaluation.id,
           item_id: itemId,
           score,
-          comment
+          comment,
+          grade
         }, {
           onConflict: 'evaluation_id,item_id'
         })
@@ -327,13 +340,11 @@ export default function EvaluationsPage() {
   }
 
   const calculateTotalScore = () => {
-    if (!currentEvaluation) return "0.0"
+    if (!currentEvaluation) return "0"
 
-    const totalWeight = currentEvaluation.items.reduce((sum, item) => sum + item.weight, 0)
-    const weightedScore = currentEvaluation.items.reduce((sum, item) =>
-      sum + (item.score * item.weight), 0
-    )
-    return totalWeight > 0 ? (weightedScore / totalWeight).toFixed(1) : "0.0"
+    // 単純合計
+    const totalScore = currentEvaluation.items.reduce((sum, item) => sum + item.score, 0)
+    return totalScore.toFixed(1)
   }
 
   const handleSubmit = async () => {
@@ -490,21 +501,34 @@ export default function EvaluationsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor={`score-${item.id}`}>評価点（1.0〜5.0、小数点1位まで）</Label>
-                    <Input
-                      id={`score-${item.id}`}
-                      type="number"
-                      step="0.1"
-                      min="1.0"
-                      max="5.0"
-                      placeholder="例: 4.5"
-                      value={item.score || ""}
-                      onChange={(e) => handleScoreChange(item.id, e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      加重スコア: {(item.score * item.weight).toFixed(1)}点
-                    </p>
+                    <Label htmlFor={`grade-${item.id}`}>評価グレード</Label>
+                    <Select
+                      value={item.grade || ''}
+                      onValueChange={(value) => handleGradeChange(item.id, value)}
+                    >
+                      <SelectTrigger className="max-w-xs">
+                        <SelectValue placeholder="A/B/C/D/Eを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
+                          <SelectItem key={grade} value={grade}>
+                            {grade}評価 ({item.grade_scores?.[grade] || 0}点)
+                            {item.grade_criteria?.[grade] && ` - ${item.grade_criteria[grade]}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {item.grade && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">選択中: {item.grade}評価</p>
+                        <p className="text-lg font-bold text-blue-600">{item.score}点</p>
+                        {item.grade_criteria?.[item.grade as keyof typeof item.grade_criteria] && (
+                          <p className="text-sm text-gray-600 mt-2">
+                            {item.grade_criteria[item.grade as keyof typeof item.grade_criteria]}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor={`comment-${item.id}`}>コメント</Label>
@@ -526,7 +550,7 @@ export default function EvaluationsPage() {
                 <p className="text-3xl font-bold text-green-700">{calculateTotalScore()}</p>
               </div>
               <p className="text-sm text-gray-600">
-                各項目の評価点を配点で加重平均した総合スコアです
+                各項目の評価点を合計した総合スコアです
               </p>
             </div>
 

@@ -17,6 +17,7 @@ export type EvaluationPDFData = {
       score: number
       comment: string
       criteria?: string
+      grade?: string
     }[]
   }[]
 }
@@ -31,9 +32,10 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
         <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
           <thead>
             <tr style="background: #e0e7ff; color: #1e40af;">
-              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">項目名</th>
-              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
-              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">重み</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 18%;">項目名</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">説明</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">重み</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">グレード</th>
               <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">スコア</th>
               <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 34%;">コメント</th>
             </tr>
@@ -50,6 +52,9 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
                 </td>
                 <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">
                   ${item.weight}
+                </td>
+                <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 13px; color: #374151;">
+                  ${item.grade || '-'}
                 </td>
                 <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 14px; color: #3b82f6;">
                   ${item.score}
@@ -146,9 +151,10 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
           <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
             <thead>
               <tr style="background: #e0e7ff; color: #1e40af;">
-                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">項目名</th>
-                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
-                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">重み</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 18%;">項目名</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">説明</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">重み</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">グレード</th>
                 <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">スコア</th>
                 <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 34%;">コメント</th>
               </tr>
@@ -165,6 +171,9 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
                   </td>
                   <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">
                     ${item.weight}
+                  </td>
+                  <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 13px; color: #374151;">
+                    ${item.grade || '-'}
                   </td>
                   <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 14px; color: #3b82f6;">
                     ${item.score}

@@ -47,6 +47,7 @@ type EvaluationResult = {
     score: number
     comment: string
     criteria?: string
+    grade?: string
   }[]
 }
 
@@ -142,20 +143,17 @@ export default function ResultsPage() {
             .select(`
               score,
               comment,
+              grade,
               item:evaluation_items(name, description, weight, criteria)
             `)
             .eq('evaluation_id', evaluation.id)
 
           if (scoresError) throw scoresError
 
-          // 加重平均を計算
+          // 単純合計を計算
           let totalScore = 0
           if (scoresData && scoresData.length > 0) {
-            const totalWeight = scoresData.reduce((sum, s: any) => sum + (s.item?.weight || 0), 0)
-            const weightedScore = scoresData.reduce((sum, s: any) =>
-              sum + (s.score * (s.item?.weight || 0)), 0
-            )
-            totalScore = totalWeight > 0 ? weightedScore / totalWeight : 0
+            totalScore = scoresData.reduce((sum, s: any) => sum + (s.score || 0), 0)
           }
 
           // 評価項目の詳細データを整形
@@ -165,7 +163,8 @@ export default function ResultsPage() {
             weight: s.item?.weight || 0,
             score: s.score || 0,
             comment: s.comment || '',
-            criteria: s.item?.criteria || ''
+            criteria: s.item?.criteria || '',
+            grade: s.grade || ''
           })) || []
 
           return {
@@ -716,7 +715,10 @@ export default function ResultsPage() {
                           <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                         </div>
                         <div className="ml-4 text-right">
-                          <div className="text-2xl font-bold text-blue-600">{item.score}</div>
+                          {item.grade && (
+                            <div className="text-lg font-semibold text-gray-700 mb-1">{item.grade}評価</div>
+                          )}
+                          <div className="text-2xl font-bold text-blue-600">{item.score}点</div>
                           <div className="text-xs text-gray-500">重み: {item.weight}</div>
                         </div>
                       </div>
@@ -809,7 +811,10 @@ export default function ResultsPage() {
                               {/* 本人評価 */}
                               <td className="border p-2 text-center bg-blue-50">
                                 {selfEval?.status === 'submitted' && selfItem ? (
-                                  <span className="text-lg font-bold text-blue-600">{selfItem.score}</span>
+                                  <div>
+                                    {selfItem.grade && <div className="text-sm font-semibold text-gray-700">{selfItem.grade}</div>}
+                                    <span className="text-lg font-bold text-blue-600">{selfItem.score}</span>
+                                  </div>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
@@ -824,7 +829,10 @@ export default function ResultsPage() {
                               {/* 店長評価 */}
                               <td className="border p-2 text-center bg-green-50">
                                 {managerEval?.status === 'submitted' && managerItem ? (
-                                  <span className="text-lg font-bold text-green-600">{managerItem.score}</span>
+                                  <div>
+                                    {managerItem.grade && <div className="text-sm font-semibold text-gray-700">{managerItem.grade}</div>}
+                                    <span className="text-lg font-bold text-green-600">{managerItem.score}</span>
+                                  </div>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
@@ -839,7 +847,10 @@ export default function ResultsPage() {
                               {/* MG評価 */}
                               <td className="border p-2 text-center bg-purple-50">
                                 {mgEval?.status === 'submitted' && mgItem ? (
-                                  <span className="text-lg font-bold text-purple-600">{mgItem.score}</span>
+                                  <div>
+                                    {mgItem.grade && <div className="text-sm font-semibold text-gray-700">{mgItem.grade}</div>}
+                                    <span className="text-lg font-bold text-purple-600">{mgItem.score}</span>
+                                  </div>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
