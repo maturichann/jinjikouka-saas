@@ -26,35 +26,35 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
   const evaluationsHTML = data.evaluations.map((evaluation, index) => {
     // 評価項目の表を生成
     const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
-      <div style="margin-top: 15px;">
-        <h4 style="font-size: 16px; margin-bottom: 10px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">評価項目詳細</h4>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+      <div style="margin-top: 10px;">
+        <h4 style="font-size: 14px; margin-bottom: 8px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 3px;">評価項目詳細</h4>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
           <thead>
             <tr style="background: #e0e7ff; color: #1e40af;">
-              <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">項目名</th>
-              <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
-              <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; width: 10%;">重み</th>
-              <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; width: 10%;">スコア</th>
-              <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">コメント</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">項目名</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">重み</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">スコア</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 34%;">コメント</th>
             </tr>
           </thead>
           <tbody>
             ${evaluation.items.map((item, i) => `
               <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                <td style="padding: 8px; border: 1px solid #cbd5e1;">
+                <td style="padding: 5px; border: 1px solid #cbd5e1;">
                   <strong>${item.name}</strong>
                 </td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1; font-size: 13px;">
+                <td style="padding: 5px; border: 1px solid #cbd5e1; font-size: 10px;">
                   ${item.description}
-                  ${item.criteria ? `<br><span style="color: #6b7280; font-size: 12px;">基準: ${item.criteria}</span>` : ''}
+                  ${item.criteria ? `<br><span style="color: #6b7280; font-size: 9px;">基準: ${item.criteria}</span>` : ''}
                 </td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">
+                <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">
                   ${item.weight}
                 </td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 16px; color: #3b82f6;">
+                <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 14px; color: #3b82f6;">
                   ${item.score}
                 </td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1; font-size: 13px;">
+                <td style="padding: 5px; border: 1px solid #cbd5e1; font-size: 10px;">
                   ${item.comment || '-'}
                 </td>
               </tr>
@@ -62,16 +62,16 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
           </tbody>
         </table>
       </div>
-    ` : '<p style="color: #6b7280; margin-top: 10px;">※ 評価項目の詳細データがありません</p>'
+    ` : '<p style="color: #6b7280; margin-top: 10px; font-size: 11px;">※ 評価項目の詳細データがありません</p>'
 
     return `
-      <div style="margin-bottom: 30px; page-break-before: ${index > 0 ? 'always' : 'auto'}; page-break-inside: avoid;">
-        <div style="background: #3b82f6; color: white; padding: 12px; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
-          <h3 style="margin: 0; font-size: 18px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
+      <div style="page-break-before: ${index > 0 ? 'always' : 'auto'}; page-break-after: always;">
+        <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
+          <h3 style="margin: 0; font-size: 16px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
         </div>
-        <div style="padding: 12px; background: #f9fafb; border-radius: 0 0 8px 8px;">
-          <p style="margin: 5px 0;"><strong>ステータス:</strong> ${evaluation.status}</p>
-          <p style="margin: 5px 0;"><strong>提出日:</strong> ${evaluation.submittedAt}</p>
+        <div style="padding: 8px; background: #f9fafb; border-radius: 0 0 8px 8px; margin-bottom: 8px;">
+          <p style="margin: 3px 0; font-size: 12px;"><strong>ステータス:</strong> ${evaluation.status}</p>
+          <p style="margin: 3px 0; font-size: 12px;"><strong>提出日:</strong> ${evaluation.submittedAt}</p>
         </div>
         ${itemsTableHTML}
       </div>
@@ -141,35 +141,35 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
     const evaluationsHTML = data.evaluations.map((evaluation, evalIndex) => {
       // 評価項目の表を生成
       const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
-        <div style="margin-top: 15px;">
-          <h4 style="font-size: 16px; margin-bottom: 10px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">評価項目詳細</h4>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <div style="margin-top: 10px;">
+          <h4 style="font-size: 14px; margin-bottom: 8px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 3px;">評価項目詳細</h4>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
             <thead>
               <tr style="background: #e0e7ff; color: #1e40af;">
-                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">項目名</th>
-                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
-                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; width: 10%;">重み</th>
-                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; width: 10%;">スコア</th>
-                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; width: 25%;">コメント</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">項目名</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 30%;">説明</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">重み</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; width: 8%;">スコア</th>
+                <th style="padding: 5px; border: 1px solid #cbd5e1; text-align: left; width: 34%;">コメント</th>
               </tr>
             </thead>
             <tbody>
               ${evaluation.items.map((item, i) => `
                 <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                  <td style="padding: 8px; border: 1px solid #cbd5e1;">
+                  <td style="padding: 5px; border: 1px solid #cbd5e1;">
                     <strong>${item.name}</strong>
                   </td>
-                  <td style="padding: 8px; border: 1px solid #cbd5e1; font-size: 13px;">
+                  <td style="padding: 5px; border: 1px solid #cbd5e1; font-size: 10px;">
                     ${item.description}
-                    ${item.criteria ? `<br><span style="color: #6b7280; font-size: 12px;">基準: ${item.criteria}</span>` : ''}
+                    ${item.criteria ? `<br><span style="color: #6b7280; font-size: 9px;">基準: ${item.criteria}</span>` : ''}
                   </td>
-                  <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">
+                  <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">
                     ${item.weight}
                   </td>
-                  <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 16px; color: #3b82f6;">
+                  <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 14px; color: #3b82f6;">
                     ${item.score}
                   </td>
-                  <td style="padding: 8px; border: 1px solid #cbd5e1; font-size: 13px;">
+                  <td style="padding: 5px; border: 1px solid #cbd5e1; font-size: 10px;">
                     ${item.comment || '-'}
                   </td>
                 </tr>
@@ -177,31 +177,23 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
             </tbody>
           </table>
         </div>
-      ` : '<p style="color: #6b7280; margin-top: 10px;">※ 評価項目の詳細データがありません</p>'
+      ` : '<p style="color: #6b7280; margin-top: 10px; font-size: 11px;">※ 評価項目の詳細データがありません</p>'
 
       return `
-        <div style="margin-bottom: 30px; page-break-before: ${evalIndex > 0 ? 'always' : 'auto'}; page-break-inside: avoid;">
-          <div style="background: #3b82f6; color: white; padding: 12px; border-radius: 8px 8px 0 0; margin-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 18px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
+        <div style="page-break-before: ${evalIndex > 0 || dataIndex > 0 ? 'always' : 'auto'}; page-break-after: always;">
+          <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
+            <h3 style="margin: 0; font-size: 16px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
           </div>
-          <div style="padding: 12px; background: #f9fafb; border-radius: 0 0 8px 8px;">
-            <p style="margin: 5px 0;"><strong>ステータス:</strong> ${evaluation.status}</p>
-            <p style="margin: 5px 0;"><strong>提出日:</strong> ${evaluation.submittedAt}</p>
+          <div style="padding: 8px; background: #f9fafb; border-radius: 0 0 8px 8px; margin-bottom: 8px;">
+            <p style="margin: 3px 0; font-size: 12px;"><strong>対象者:</strong> ${data.evaluatee} | <strong>部署:</strong> ${data.department}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>ステータス:</strong> ${evaluation.status} | <strong>提出日:</strong> ${evaluation.submittedAt}</p>
           </div>
           ${itemsTableHTML}
         </div>
       `
     }).join('')
 
-    return `
-      <div style="margin-bottom: 40px; page-break-before: ${dataIndex > 0 ? 'always' : 'auto'};">
-        <h2 style="font-size: 22px; margin-bottom: 15px; color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">
-          ${dataIndex + 1}. ${data.evaluatee}
-        </h2>
-        <p style="margin: 8px 0; color: #6b7280;"><strong>部署:</strong> ${data.department} | <strong>評価期間:</strong> ${data.period}</p>
-        ${evaluationsHTML}
-      </div>
-    `
+    return evaluationsHTML
   }).join('')
 
   const htmlContent = `

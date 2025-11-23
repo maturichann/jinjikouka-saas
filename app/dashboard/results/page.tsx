@@ -281,7 +281,10 @@ export default function ResultsPage() {
   }, [filteredEvaluations])
 
   const getPersonEvaluations = (name: string) => {
-    return evaluations.filter(e => e.evaluatee === name)
+    const stageOrder = { 'self': 1, 'manager': 2, 'mg': 3 }
+    return evaluations
+      .filter(e => e.evaluatee === name)
+      .sort((a, b) => stageOrder[a.stage] - stageOrder[b.stage])
   }
 
   const handleExportPDF = async (person: string) => {
