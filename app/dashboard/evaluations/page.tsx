@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 
 type EvaluationItem = {
@@ -504,32 +505,32 @@ export default function EvaluationsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor={`grade-${item.id}`}>評価グレード</Label>
-                    <Select
+                    <Label className="mb-3 block">評価グレード</Label>
+                    <RadioGroup
                       value={item.grade || undefined}
                       onValueChange={(value) => handleGradeChange(item.id, value)}
+                      className="space-y-3"
                     >
-                      <SelectTrigger className="max-w-xs">
-                        <SelectValue placeholder="A/B/C/D/Eを選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
-                          <SelectItem key={grade} value={grade}>
-                            {grade}評価 ({item.grade_scores?.[grade] || 0}点)
-                            {item.grade_criteria?.[grade] && ` - ${item.grade_criteria[grade]}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
+                        <div key={grade} className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
+                          <Label htmlFor={`${item.id}-${grade}`} className="flex-1 cursor-pointer">
+                            <div className="font-semibold text-base">
+                              {grade}評価 - {item.grade_scores?.[grade] || 0}点
+                            </div>
+                            {item.grade_criteria?.[grade] && (
+                              <div className="text-sm text-gray-600 mt-1">
+                                {item.grade_criteria[grade]}
+                              </div>
+                            )}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                     {item.grade && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
-                        <p className="text-sm font-semibold text-gray-700 mb-1">選択中: {item.grade}評価</p>
-                        <p className="text-lg font-bold text-blue-600">{item.score}点</p>
-                        {item.grade_criteria?.[item.grade as keyof typeof item.grade_criteria] && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            {item.grade_criteria[item.grade as keyof typeof item.grade_criteria]}
-                          </p>
-                        )}
+                      <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
+                        <p className="text-sm font-semibold text-green-700 mb-1">選択中: {item.grade}評価</p>
+                        <p className="text-2xl font-bold text-green-600">{item.score}点</p>
                       </div>
                     )}
                   </div>
