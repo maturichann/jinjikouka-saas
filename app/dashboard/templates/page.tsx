@@ -58,7 +58,7 @@ export default function TemplatesPage() {
     weight: 1,
     criteria: "",
     category: "",
-    grade_scores: { A: 3, B: 2, C: 1, D: 0.5, E: 0 },
+    grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
     grade_criteria: { A: "", B: "", C: "", D: "", E: "" }
   })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
@@ -159,7 +159,7 @@ export default function TemplatesPage() {
         weight: 1,
         criteria: "",
         category: "",
-        grade_scores: { A: 3, B: 2, C: 1, D: 0.5, E: 0 },
+        grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
         grade_criteria: { A: "", B: "", C: "", D: "", E: "" }
       })
       setIsItemDialogOpen(false)
@@ -465,148 +465,41 @@ export default function TemplatesPage() {
                       </div>
                       <div>
                         <Label>グレード別配点と評価基準（5段階評価: A/B/C/D/E）</Label>
-                        <div className="grid grid-cols-5 gap-2 mt-2">
-                          <div>
-                            <Label htmlFor="grade-a" className="text-xs font-semibold">A評価</Label>
-                            <Input
-                              id="grade-a"
-                              type="number"
-                              step="0.5"
-                              placeholder="3"
-                              value={newItem.grade_scores?.A || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_scores: { ...newItem.grade_scores!, A: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="text-xs mb-1"
-                            />
-                            <Input
-                              type="text"
-                              placeholder="評価基準"
-                              value={newItem.grade_criteria?.A || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_criteria: { ...newItem.grade_criteria!, A: e.target.value }
-                              })}
-                              className="text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="grade-b" className="text-xs font-semibold">B評価</Label>
-                            <Input
-                              id="grade-b"
-                              type="number"
-                              step="0.5"
-                              placeholder="2"
-                              value={newItem.grade_scores?.B || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_scores: { ...newItem.grade_scores!, B: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="text-xs mb-1"
-                            />
-                            <Input
-                              type="text"
-                              placeholder="評価基準"
-                              value={newItem.grade_criteria?.B || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_criteria: { ...newItem.grade_criteria!, B: e.target.value }
-                              })}
-                              className="text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="grade-c" className="text-xs font-semibold">C評価</Label>
-                            <Input
-                              id="grade-c"
-                              type="number"
-                              step="0.5"
-                              placeholder="1"
-                              value={newItem.grade_scores?.C || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_scores: { ...newItem.grade_scores!, C: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="text-xs mb-1"
-                            />
-                            <Input
-                              type="text"
-                              placeholder="評価基準"
-                              value={newItem.grade_criteria?.C || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_criteria: { ...newItem.grade_criteria!, C: e.target.value }
-                              })}
-                              className="text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="grade-d" className="text-xs font-semibold">D評価</Label>
-                            <Input
-                              id="grade-d"
-                              type="number"
-                              step="0.5"
-                              placeholder="0.5"
-                              value={newItem.grade_scores?.D || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_scores: { ...newItem.grade_scores!, D: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="text-xs mb-1"
-                            />
-                            <Input
-                              type="text"
-                              placeholder="評価基準"
-                              value={newItem.grade_criteria?.D || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_criteria: { ...newItem.grade_criteria!, D: e.target.value }
-                              })}
-                              className="text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="grade-e" className="text-xs font-semibold">E評価</Label>
-                            <Input
-                              id="grade-e"
-                              type="number"
-                              step="0.5"
-                              placeholder="0"
-                              value={newItem.grade_scores?.E || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_scores: { ...newItem.grade_scores!, E: parseFloat(e.target.value) || 0 }
-                              })}
-                              className="text-xs mb-1"
-                            />
-                            <Input
-                              type="text"
-                              placeholder="評価基準"
-                              value={newItem.grade_criteria?.E || ""}
-                              onChange={(e) => setNewItem({
-                                ...newItem,
-                                grade_criteria: { ...newItem.grade_criteria!, E: e.target.value }
-                              })}
-                              className="text-xs"
-                            />
-                          </div>
+                        <div className="space-y-3 mt-2">
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
+                            <div key={grade} className="p-3 border rounded-lg bg-gray-50">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Label htmlFor={`grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
+                                  {grade}評価
+                                </Label>
+                                <Input
+                                  id={`grade-${grade.toLowerCase()}`}
+                                  type="number"
+                                  step="0.5"
+                                  placeholder={String(5 - index)}
+                                  value={newItem.grade_scores?.[grade] || ""}
+                                  onChange={(e) => setNewItem({
+                                    ...newItem,
+                                    grade_scores: { ...newItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
+                                  })}
+                                  className="w-24"
+                                />
+                                <span className="text-sm text-gray-600">点</span>
+                              </div>
+                              <textarea
+                                placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
+                                value={newItem.grade_criteria?.[grade] || ""}
+                                onChange={(e) => setNewItem({
+                                  ...newItem,
+                                  grade_criteria: { ...newItem.grade_criteria!, [grade]: e.target.value }
+                                })}
+                                className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              />
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          各グレード(A〜E)に対応する点数と評価基準を設定してください
-                        </p>
-                      </div>
-                      <div>
-                        <Label htmlFor="item-criteria">採点基準</Label>
-                        <textarea
-                          id="item-criteria"
-                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          placeholder="5.0: 期待を大きく上回る&#10;4.0: 期待を上回る&#10;3.0: 期待通り&#10;2.0: やや不足&#10;1.0: 大幅に不足"
-                          value={newItem.criteria}
-                          onChange={(e) => setNewItem({ ...newItem, criteria: e.target.value })}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          各評価レベル（1.0〜5.0）の基準を記載してください
+                        <p className="text-xs text-gray-500 mt-2">
+                          各グレード(A〜E)の点数と評価基準を設定してください
                         </p>
                       </div>
                       <Button onClick={handleAddItem} className="w-full">追加</Button>
@@ -785,148 +678,41 @@ export default function TemplatesPage() {
               </div>
               <div>
                 <Label>グレード別配点と評価基準（5段階評価: A/B/C/D/E）</Label>
-                <div className="grid grid-cols-5 gap-2 mt-2">
-                  <div>
-                    <Label htmlFor="edit-grade-a" className="text-xs font-semibold">A評価</Label>
-                    <Input
-                      id="edit-grade-a"
-                      type="number"
-                      step="0.5"
-                      placeholder="3"
-                      value={editingItem?.grade_scores?.A || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_scores: { ...editingItem.grade_scores!, A: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="text-xs mb-1"
-                    />
-                    <Input
-                      type="text"
-                      placeholder="評価基準"
-                      value={editingItem?.grade_criteria?.A || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_criteria: { ...editingItem.grade_criteria!, A: e.target.value }
-                      })}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-grade-b" className="text-xs font-semibold">B評価</Label>
-                    <Input
-                      id="edit-grade-b"
-                      type="number"
-                      step="0.5"
-                      placeholder="2"
-                      value={editingItem?.grade_scores?.B || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_scores: { ...editingItem.grade_scores!, B: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="text-xs mb-1"
-                    />
-                    <Input
-                      type="text"
-                      placeholder="評価基準"
-                      value={editingItem?.grade_criteria?.B || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_criteria: { ...editingItem.grade_criteria!, B: e.target.value }
-                      })}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-grade-c" className="text-xs font-semibold">C評価</Label>
-                    <Input
-                      id="edit-grade-c"
-                      type="number"
-                      step="0.5"
-                      placeholder="1"
-                      value={editingItem?.grade_scores?.C || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_scores: { ...editingItem.grade_scores!, C: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="text-xs mb-1"
-                    />
-                    <Input
-                      type="text"
-                      placeholder="評価基準"
-                      value={editingItem?.grade_criteria?.C || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_criteria: { ...editingItem.grade_criteria!, C: e.target.value }
-                      })}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-grade-d" className="text-xs font-semibold">D評価</Label>
-                    <Input
-                      id="edit-grade-d"
-                      type="number"
-                      step="0.5"
-                      placeholder="0.5"
-                      value={editingItem?.grade_scores?.D || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_scores: { ...editingItem.grade_scores!, D: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="text-xs mb-1"
-                    />
-                    <Input
-                      type="text"
-                      placeholder="評価基準"
-                      value={editingItem?.grade_criteria?.D || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_criteria: { ...editingItem.grade_criteria!, D: e.target.value }
-                      })}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-grade-e" className="text-xs font-semibold">E評価</Label>
-                    <Input
-                      id="edit-grade-e"
-                      type="number"
-                      step="0.5"
-                      placeholder="0"
-                      value={editingItem?.grade_scores?.E || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_scores: { ...editingItem.grade_scores!, E: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="text-xs mb-1"
-                    />
-                    <Input
-                      type="text"
-                      placeholder="評価基準"
-                      value={editingItem?.grade_criteria?.E || ""}
-                      onChange={(e) => editingItem && setEditingItem({
-                        ...editingItem,
-                        grade_criteria: { ...editingItem.grade_criteria!, E: e.target.value }
-                      })}
-                      className="text-xs"
-                    />
-                  </div>
+                <div className="space-y-3 mt-2">
+                  {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
+                    <div key={grade} className="p-3 border rounded-lg bg-gray-50">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Label htmlFor={`edit-grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
+                          {grade}評価
+                        </Label>
+                        <Input
+                          id={`edit-grade-${grade.toLowerCase()}`}
+                          type="number"
+                          step="0.5"
+                          placeholder={String(5 - index)}
+                          value={editingItem?.grade_scores?.[grade] || ""}
+                          onChange={(e) => editingItem && setEditingItem({
+                            ...editingItem,
+                            grade_scores: { ...editingItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
+                          })}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-gray-600">点</span>
+                      </div>
+                      <textarea
+                        placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
+                        value={editingItem?.grade_criteria?.[grade] || ""}
+                        onChange={(e) => editingItem && setEditingItem({
+                          ...editingItem,
+                          grade_criteria: { ...editingItem.grade_criteria!, [grade]: e.target.value }
+                        })}
+                        className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  各グレード(A〜E)に対応する点数と評価基準を設定してください
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="edit-item-criteria">採点基準</Label>
-                <textarea
-                  id="edit-item-criteria"
-                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="5.0: 期待を大きく上回る&#10;4.0: 期待を上回る&#10;3.0: 期待通り&#10;2.0: やや不足&#10;1.0: 大幅に不足"
-                  value={editingItem?.criteria || ""}
-                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, criteria: e.target.value })}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  各評価レベル（1.0〜5.0）の基準を記載してください
+                <p className="text-xs text-gray-500 mt-2">
+                  各グレード(A〜E)の点数と評価基準を設定してください
                 </p>
               </div>
               <Button onClick={handleEditItem} className="w-full">更新</Button>
