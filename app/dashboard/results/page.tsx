@@ -59,6 +59,8 @@ export default function ResultsPage() {
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationResult | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false)
+  const [comparisonPerson, setComparisonPerson] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
@@ -532,6 +534,15 @@ export default function ResultsPage() {
                           <Button
                             variant="outline"
                             onClick={() => {
+                              setComparisonPerson(person)
+                              setIsComparisonDialogOpen(true)
+                            }}
+                          >
+                            比較表示
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
                               const evals = getPersonEvaluations(person)
                               if (evals.length > 0) {
                                 setSelectedEvaluation(evals[0])
@@ -730,6 +741,144 @@ export default function ResultsPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 比較表示ダイアログ */}
+      <Dialog open={isComparisonDialogOpen} onOpenChange={setIsComparisonDialogOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>評価比較表示</DialogTitle>
+            <DialogDescription>
+              本人評価・店長評価・MG評価を横並びで比較
+            </DialogDescription>
+          </DialogHeader>
+          {comparisonPerson && (() => {
+            const personEvals = getPersonEvaluations(comparisonPerson)
+            const selfEval = personEvals.find(e => e.stage === 'self')
+            const managerEval = personEvals.find(e => e.stage === 'manager')
+            const mgEval = personEvals.find(e => e.stage === 'mg')
+
+            // 全ての評価項目を取得（本人評価から項目リストを取得）
+            const items = selfEval?.items || managerEval?.items || mgEval?.items || []
+
+            return (
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-lg font-semibold">{comparisonPerson}</p>
+                  <p className="text-sm text-gray-600">
+                    {personEvals[0]?.department} - {personEvals[0]?.period}
+                  </p>
+                </div>
+
+                {items.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border p-2 text-left sticky left-0 bg-gray-100 z-10">項目</th>
+                          <th className="border p-2 text-center bg-blue-50" colSpan={2}>本人評価</th>
+                          <th className="border p-2 text-center bg-green-50" colSpan={2}>店長評価</th>
+                          <th className="border p-2 text-center bg-purple-50" colSpan={2}>MG評価</th>
+                        </tr>
+                        <tr className="bg-gray-50 text-xs">
+                          <th className="border p-2 text-left sticky left-0 bg-gray-50 z-10">説明</th>
+                          <th className="border p-1 text-center bg-blue-50 w-16">スコア</th>
+                          <th className="border p-1 text-center bg-blue-50">コメント</th>
+                          <th className="border p-1 text-center bg-green-50 w-16">スコア</th>
+                          <th className="border p-1 text-center bg-green-50">コメント</th>
+                          <th className="border p-1 text-center bg-purple-50 w-16">スコア</th>
+                          <th className="border p-1 text-center bg-purple-50">コメント</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, idx) => {
+                          const selfItem = selfEval?.items?.[idx]
+                          const managerItem = managerEval?.items?.[idx]
+                          const mgItem = mgEval?.items?.[idx]
+
+                          return (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="border p-2 sticky left-0 bg-inherit z-10">
+                                <div className="font-semibold">{item.name}</div>
+                                <div className="text-xs text-gray-600 mt-1">{item.description}</div>
+                                {item.criteria && (
+                                  <div className="text-xs text-blue-600 mt-1">基準: {item.criteria}</div>
+                                )}
+                              </td>
+                              {/* 本人評価 */}
+                              <td className="border p-2 text-center bg-blue-50">
+                                {selfEval?.status === 'submitted' && selfItem ? (
+                                  <span className="text-lg font-bold text-blue-600">{selfItem.score}</span>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="border p-2 text-sm bg-blue-50">
+                                {selfEval?.status === 'submitted' && selfItem?.comment ? (
+                                  selfItem.comment
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              {/* 店長評価 */}
+                              <td className="border p-2 text-center bg-green-50">
+                                {managerEval?.status === 'submitted' && managerItem ? (
+                                  <span className="text-lg font-bold text-green-600">{managerItem.score}</span>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="border p-2 text-sm bg-green-50">
+                                {managerEval?.status === 'submitted' && managerItem?.comment ? (
+                                  managerItem.comment
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              {/* MG評価 */}
+                              <td className="border p-2 text-center bg-purple-50">
+                                {mgEval?.status === 'submitted' && mgItem ? (
+                                  <span className="text-lg font-bold text-purple-600">{mgItem.score}</span>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="border p-2 text-sm bg-purple-50">
+                                {mgEval?.status === 'submitted' && mgItem?.comment ? (
+                                  mgItem.comment
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-gray-100 font-bold">
+                          <td className="border p-2 text-right sticky left-0 bg-gray-100 z-10">総合スコア</td>
+                          <td className="border p-2 text-center text-xl text-blue-600 bg-blue-50" colSpan={2}>
+                            {selfEval?.status === 'submitted' ? selfEval.totalScore.toFixed(1) : '-'}
+                          </td>
+                          <td className="border p-2 text-center text-xl text-green-600 bg-green-50" colSpan={2}>
+                            {managerEval?.status === 'submitted' ? managerEval.totalScore.toFixed(1) : '-'}
+                          </td>
+                          <td className="border p-2 text-center text-xl text-purple-600 bg-purple-50" colSpan={2}>
+                            {mgEval?.status === 'submitted' ? mgEval.totalScore.toFixed(1) : '-'}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded">
+                    <p>※ 評価項目データがありません。</p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </div>
