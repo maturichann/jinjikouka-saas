@@ -1,17 +1,10 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-// 日本語フォントを設定
+// 日本語フォントを設定（現在は無効化）
 function setupJapaneseFont(doc: jsPDF) {
-  try {
-    // jspdf-fontパッケージを動的にインポート
-    require('jspdf-font')
-    doc.addFont('GenShinGothic-Regular.ttf', 'GenShinGothic', 'normal')
-    doc.setFont('GenShinGothic')
-  } catch (error) {
-    console.warn('日本語フォントの読み込みに失敗しました。デフォルトフォントを使用します。', error)
-    // フォント読み込みに失敗してもPDF生成は継続
-  }
+  // 日本語フォントは一旦無効化（クライアントサイドでの問題回避）
+  // TODO: サーバーサイドPDF生成に移行する
 }
 
 export type EvaluationPDFData = {
@@ -88,8 +81,8 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
         head: [['項目', 'ウェイト', 'スコア', '加重', 'コメント']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246], font: 'GenShinGothic' },
-        styles: { fontSize: 9, cellPadding: 3, font: 'GenShinGothic' },
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9, cellPadding: 3 },
         columnStyles: {
           0: { cellWidth: 40 },
           1: { cellWidth: 20 },
@@ -127,8 +120,8 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
     head: [['評価段階', '総合スコア', 'ステータス', '提出日']],
     body: summaryData,
     theme: 'striped',
-    headStyles: { fillColor: [34, 197, 94], font: 'GenShinGothic' },
-    styles: { fontSize: 10, font: 'GenShinGothic' }
+    headStyles: { fillColor: [34, 197, 94] },
+    styles: { fontSize: 10 }
   })
 
   // ページ番号
@@ -182,8 +175,7 @@ export function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFDat
       head: [['評価段階', '総合スコア', 'ステータス']],
       body: summaryData,
       theme: 'grid',
-      headStyles: { font: 'GenShinGothic' },
-      styles: { fontSize: 9, font: 'GenShinGothic' }
+      styles: { fontSize: 9 }
     })
 
     startY = (doc as any).lastAutoTable.finalY + 15
