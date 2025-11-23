@@ -1,25 +1,12 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import 'jspdf-font'
 
-// 日本語フォントのサポートのためのヘルパー
-function splitJapaneseText(text: string, maxLength: number): string[] {
-  const lines: string[] = []
-  let currentLine = ''
-
-  for (const char of text) {
-    if (currentLine.length >= maxLength) {
-      lines.push(currentLine)
-      currentLine = char
-    } else {
-      currentLine += char
-    }
-  }
-
-  if (currentLine) {
-    lines.push(currentLine)
-  }
-
-  return lines
+// 日本語フォントを設定
+function setupJapaneseFont(doc: jsPDF) {
+  // jspdf-fontパッケージが提供する日本語フォントを使用
+  doc.addFont('GenShinGothic-Regular.ttf', 'GenShinGothic', 'normal')
+  doc.setFont('GenShinGothic')
 }
 
 export type EvaluationPDFData = {
@@ -45,15 +32,18 @@ export type EvaluationPDFData = {
 export function generateEvaluationPDF(data: EvaluationPDFData) {
   const doc = new jsPDF()
 
+  // 日本語フォントを設定
+  setupJapaneseFont(doc)
+
   // タイトル
   doc.setFontSize(20)
-  doc.text('Evaluation Report', 14, 22)
+  doc.text('評価レポート', 14, 22)
   doc.setFontSize(12)
 
   // 基本情報
-  doc.text(`Evaluatee: ${data.evaluatee}`, 14, 35)
-  doc.text(`Department: ${data.department}`, 14, 42)
-  doc.text(`Period: ${data.period}`, 14, 49)
+  doc.text(`評価対象者: ${data.evaluatee}`, 14, 35)
+  doc.text(`部署: ${data.department}`, 14, 42)
+  doc.text(`評価期間: ${data.period}`, 14, 49)
 
   let yPos = 60
 
@@ -69,13 +59,13 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
     doc.setFillColor(59, 130, 246)
     doc.rect(14, yPos - 5, 182, 10, 'F')
     doc.setTextColor(255, 255, 255)
-    doc.text(`${evaluation.stage} - Score: ${evaluation.totalScore.toFixed(1)}`, 16, yPos + 2)
+    doc.text(`${evaluation.stage} - スコア: ${evaluation.totalScore.toFixed(1)}`, 16, yPos + 2)
     doc.setTextColor(0, 0, 0)
 
     yPos += 12
 
     doc.setFontSize(10)
-    doc.text(`Status: ${evaluation.status} | Submitted: ${evaluation.submittedAt}`, 14, yPos)
+    doc.text(`ステータス: ${evaluation.status} | 提出日: ${evaluation.submittedAt}`, 14, yPos)
     yPos += 10
 
     // 評価項目がある場合
@@ -90,11 +80,11 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Item', 'Weight', 'Score', 'Weighted', 'Comment']],
+        head: [['項目', 'ウェイト', 'スコア', '加重', 'コメント']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [59, 130, 246], font: 'GenShinGothic' },
+        styles: { fontSize: 9, cellPadding: 3, font: 'GenShinGothic' },
         columnStyles: {
           0: { cellWidth: 40 },
           1: { cellWidth: 20 },
@@ -117,7 +107,7 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
   }
 
   doc.setFontSize(14)
-  doc.text('Summary', 14, yPos)
+  doc.text('サマリー', 14, yPos)
   yPos += 10
 
   const summaryData = data.evaluations.map(e => [
@@ -129,11 +119,11 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Stage', 'Total Score', 'Status', 'Submitted At']],
+    head: [['評価段階', '総合スコア', 'ステータス', '提出日']],
     body: summaryData,
     theme: 'striped',
-    headStyles: { fillColor: [34, 197, 94] },
-    styles: { fontSize: 10 }
+    headStyles: { fillColor: [34, 197, 94], font: 'GenShinGothic' },
+    styles: { fontSize: 10, font: 'GenShinGothic' }
   })
 
   // ページ番号
@@ -154,8 +144,11 @@ export function generateEvaluationPDF(data: EvaluationPDFData) {
 export function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFData[]) {
   const doc = new jsPDF()
 
+  // 日本語フォントを設定
+  setupJapaneseFont(doc)
+
   doc.setFontSize(18)
-  doc.text('Evaluation Reports - Multiple Evaluatees', 14, 22)
+  doc.text('評価レポート - 複数対象者', 14, 22)
 
   let startY = 35
 
@@ -170,7 +163,7 @@ export function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFDat
     startY += 8
 
     doc.setFontSize(10)
-    doc.text(`Department: ${data.department} | Period: ${data.period}`, 14, startY)
+    doc.text(`部署: ${data.department} | 評価期間: ${data.period}`, 14, startY)
     startY += 10
 
     const summaryData = data.evaluations.map(e => [
@@ -181,10 +174,11 @@ export function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFDat
 
     autoTable(doc, {
       startY: startY,
-      head: [['Stage', 'Total Score', 'Status']],
+      head: [['評価段階', '総合スコア', 'ステータス']],
       body: summaryData,
       theme: 'grid',
-      styles: { fontSize: 9 }
+      headStyles: { font: 'GenShinGothic' },
+      styles: { fontSize: 9, font: 'GenShinGothic' }
     })
 
     startY = (doc as any).lastAutoTable.finalY + 15
