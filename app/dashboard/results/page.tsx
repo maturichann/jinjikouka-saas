@@ -40,6 +40,7 @@ export default function ResultsPage() {
   const [filter, setFilter] = useState<string>("all")
   const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [periodFilter, setPeriodFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -236,8 +237,15 @@ export default function ResultsPage() {
       filtered = filtered.filter(e => e.period === periodFilter)
     }
 
+    // ステータスフィルター
+    if (statusFilter === "submitted") {
+      filtered = filtered.filter(e => e.status === "submitted")
+    } else if (statusFilter === "pending") {
+      filtered = filtered.filter(e => e.status === "pending")
+    }
+
     return filtered
-  }, [evaluations, user, filter, departmentFilter, periodFilter])
+  }, [evaluations, user, filter, departmentFilter, periodFilter, statusFilter])
 
   const uniqueEvaluatees = useMemo(() => {
     return Array.from(new Set(filteredEvaluations.map(e => e.evaluatee)))
@@ -255,7 +263,7 @@ export default function ResultsPage() {
       period: personEvals[0]?.period || "",
       evaluations: personEvals.map(e => ({
         stage: getStageLabel(e.stage),
-        status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+        status: e.status === 'submitted' ? '提出済み' : '未提出',
         totalScore: e.totalScore,
         submittedAt: e.submittedAt
       }))
@@ -272,7 +280,7 @@ export default function ResultsPage() {
         period: personEvals[0]?.period || "",
         evaluations: personEvals.map(e => ({
           stage: getStageLabel(e.stage),
-          status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+          status: e.status === 'submitted' ? '提出済み' : '未提出',
           totalScore: e.totalScore,
           submittedAt: e.submittedAt
         }))
@@ -290,7 +298,7 @@ export default function ResultsPage() {
         period: personEvals[0]?.period || "",
         evaluations: personEvals.map(e => ({
           stage: getStageLabel(e.stage),
-          status: e.status === 'submitted' ? 'Submitted' : 'Pending',
+          status: e.status === 'submitted' ? '提出済み' : '未提出',
           totalScore: e.totalScore,
           submittedAt: e.submittedAt
         }))
@@ -352,8 +360,8 @@ export default function ResultsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-3 items-center">
-                <div className="flex-1">
+              <div className="grid grid-cols-4 gap-3">
+                <div>
                   <label className="text-sm font-medium mb-1 block">部署</label>
                   <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
                     <SelectTrigger>
@@ -367,7 +375,7 @@ export default function ResultsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1">
+                <div>
                   <label className="text-sm font-medium mb-1 block">評価期間</label>
                   <Select value={periodFilter} onValueChange={setPeriodFilter}>
                     <SelectTrigger>
@@ -381,7 +389,20 @@ export default function ResultsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">ステータス</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全てのステータス" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全てのステータス</SelectItem>
+                      <SelectItem value="submitted">提出済みのみ</SelectItem>
+                      <SelectItem value="pending">未提出のみ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <label className="text-sm font-medium mb-1 block">アクション</label>
                   <Button onClick={handleExportFilteredPDF} className="w-full">
                     フィルター後のPDFエクスポート

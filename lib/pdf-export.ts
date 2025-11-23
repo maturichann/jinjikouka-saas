@@ -1,12 +1,17 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import 'jspdf-font'
 
 // 日本語フォントを設定
 function setupJapaneseFont(doc: jsPDF) {
-  // jspdf-fontパッケージが提供する日本語フォントを使用
-  doc.addFont('GenShinGothic-Regular.ttf', 'GenShinGothic', 'normal')
-  doc.setFont('GenShinGothic')
+  try {
+    // jspdf-fontパッケージを動的にインポート
+    require('jspdf-font')
+    doc.addFont('GenShinGothic-Regular.ttf', 'GenShinGothic', 'normal')
+    doc.setFont('GenShinGothic')
+  } catch (error) {
+    console.warn('日本語フォントの読み込みに失敗しました。デフォルトフォントを使用します。', error)
+    // フォント読み込みに失敗してもPDF生成は継続
+  }
 }
 
 export type EvaluationPDFData = {
