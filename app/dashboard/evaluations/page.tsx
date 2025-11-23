@@ -130,6 +130,7 @@ export default function EvaluationsPage() {
       setAvailableEvaluations(evaluationsWithItems)
 
       if (evaluationsWithItems.length > 0 && !currentEvaluation) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         loadEvaluation(evaluationsWithItems[0].id)
       }
     } catch (error: any) {
@@ -144,7 +145,8 @@ export default function EvaluationsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user, supabase, currentEvaluation, loadEvaluation])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, supabase, currentEvaluation])
 
   const loadEvaluation = useCallback(async (evaluationId: string) => {
     try {
