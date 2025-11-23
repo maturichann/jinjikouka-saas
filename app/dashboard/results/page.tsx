@@ -64,6 +64,7 @@ export default function ResultsPage() {
   const [comparisonPerson, setComparisonPerson] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   const fetchEvaluations = useCallback(async () => {
@@ -221,9 +222,16 @@ export default function ResultsPage() {
       )
 
       setEvaluations(evaluationsWithScores)
-    } catch (error) {
+      setError(null)
+    } catch (error: any) {
       console.error('評価データの取得エラー:', error)
-      alert('評価データの取得に失敗しました')
+      console.error('エラー詳細:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code
+      })
+      setError(error?.message || 'Unknown error')
     } finally {
       setIsLoading(false)
     }
@@ -384,6 +392,40 @@ export default function ResultsPage() {
   if (!user) return null
 
   const canViewAll = canViewAllEvaluations(user.role)
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">評価一覧</h1>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="text-red-800">
+              <h2 className="text-xl font-semibold mb-2">エラーが発生しました</h2>
+              <p className="mb-4">{error}</p>
+              <p className="text-sm mb-4">
+                データベースのスキーマを確認してください。以下のSQLを実行する必要があるかもしれません：
+              </p>
+              <pre className="bg-white p-4 rounded border border-red-300 text-sm overflow-x-auto">
+{`-- evaluation_scoresテーブルにgradeカラムを追加
+ALTER TABLE evaluation_scores
+ADD COLUMN IF NOT EXISTS grade text NULL;
+
+-- evaluation_itemsテーブルにgrade関連カラムを追加
+ALTER TABLE evaluation_items
+ADD COLUMN IF NOT EXISTS grade_scores jsonb DEFAULT '{"A": 5, "B": 4, "C": 3, "D": 2, "E": 1}'::jsonb;
+
+ALTER TABLE evaluation_items
+ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "", "D": "", "E": ""}'::jsonb;`}
+              </pre>
+              <Button onClick={() => window.location.reload()} className="mt-4">
+                ページを再読み込み
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
