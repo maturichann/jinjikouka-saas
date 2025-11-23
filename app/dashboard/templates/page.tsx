@@ -419,7 +419,7 @@ export default function TemplatesPage() {
                         setIsItemDialogOpen(open)
                         if (open) setSelectedTemplate(template)
                       }}>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>評価項目を追加</DialogTitle>
                     <DialogDescription>
@@ -632,7 +632,7 @@ export default function TemplatesPage() {
 
         {/* Edit Item Dialog */}
         <Dialog open={isEditItemDialogOpen} onOpenChange={setIsEditItemDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>評価項目を編集</DialogTitle>
               <DialogDescription>
