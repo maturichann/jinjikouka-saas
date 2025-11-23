@@ -181,12 +181,12 @@ export default function EvaluationsPage() {
 
       if (evalError) throw evalError
 
-      // ユーザー情報を取得
+      // ユーザー情報を取得（削除されている可能性があるためmaybeSingleを使用）
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, name')
         .eq('id', evalData.evaluatee_id)
-        .single()
+        .maybeSingle()
 
       if (userError) throw userError
 
@@ -199,8 +199,8 @@ export default function EvaluationsPage() {
 
       if (periodError) throw periodError
 
-      // evalDataを拡張
-      const evaluatee = userData
+      // evalDataを拡張（ユーザーが削除されている場合はデフォルト値を使用）
+      const evaluatee = userData || { id: evalData.evaluatee_id, name: '削除されたユーザー' }
       const period = periodData
 
       // テンプレートの項目を取得
