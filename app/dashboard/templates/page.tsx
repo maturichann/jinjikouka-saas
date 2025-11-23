@@ -409,12 +409,18 @@ export default function TemplatesPage() {
                         <Label htmlFor="item-category">大項目（カテゴリー）</Label>
                         <Input
                           id="item-category"
+                          list="categories"
                           placeholder="例: 行動評価、業績評価"
                           value={newItem.category}
                           onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
                         />
+                        <datalist id="categories">
+                          {Array.from(new Set(templates.flatMap(t => t.items.map(i => i.category).filter(Boolean)))).map(cat => (
+                            <option key={cat} value={cat} />
+                          ))}
+                        </datalist>
                         <p className="text-xs text-gray-500 mt-1">
-                          同じカテゴリー名の項目がグループ化されます
+                          既存のカテゴリーから選択するか、新しいカテゴリー名を入力
                         </p>
                       </div>
                       <div>
@@ -436,7 +442,7 @@ export default function TemplatesPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="item-weight">配点</Label>
+                        <Label htmlFor="item-weight">配点（重み）</Label>
                         <Input
                           id="item-weight"
                           type="number"
@@ -444,6 +450,9 @@ export default function TemplatesPage() {
                           value={newItem.weight || ""}
                           onChange={(e) => setNewItem({ ...newItem, weight: parseInt(e.target.value) || 0 })}
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          この項目の重要度（総合スコア計算時の重み）。例: 30
+                        </p>
                       </div>
                       <div>
                         <Label htmlFor="item-criteria">採点基準</Label>
@@ -595,12 +604,18 @@ export default function TemplatesPage() {
                 <Label htmlFor="edit-item-category">大項目（カテゴリー）</Label>
                 <Input
                   id="edit-item-category"
+                  list="edit-categories"
                   placeholder="例: 行動評価、業績評価"
                   value={editingItem?.category || ""}
                   onChange={(e) => editingItem && setEditingItem({ ...editingItem, category: e.target.value })}
                 />
+                <datalist id="edit-categories">
+                  {Array.from(new Set(templates.flatMap(t => t.items.map(i => i.category).filter(Boolean)))).map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
                 <p className="text-xs text-gray-500 mt-1">
-                  同じカテゴリー名の項目がグループ化されます
+                  既存のカテゴリーから選択するか、新しいカテゴリー名を入力
                 </p>
               </div>
               <div>
