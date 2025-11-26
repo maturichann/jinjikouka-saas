@@ -276,13 +276,19 @@ export default function EvaluationsPage() {
     // グレードに対応する点数を取得
     const score = item.grade_scores?.[grade as keyof typeof item.grade_scores] || 0
 
-    const updatedItems = currentEvaluation.items.map(i =>
-      i.id === itemId ? { ...i, grade, score } : i
-    )
+    // 状態を更新（関数型の更新を使用して競合を防ぐ）
+    setCurrentEvaluation(prev => {
+      if (!prev) return prev
 
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      items: updatedItems
+      const updatedItems = prev.items.map(i =>
+        i.id === itemId ? { ...i, grade, score } : i
+      )
+
+      return {
+        ...prev,
+        items: updatedItems,
+        status: prev.status === 'pending' ? 'in_progress' : prev.status
+      }
     })
 
     // 自動保存
@@ -313,7 +319,8 @@ export default function EvaluationsPage() {
     if (!currentEvaluation || !grade) return
 
     try {
-      const { error } = await supabase
+      // スコアを保存
+      const { error: scoreError } = await supabase
         .from('evaluation_scores')
         .upsert({
           evaluation_id: currentEvaluation.id,
@@ -325,7 +332,7 @@ export default function EvaluationsPage() {
           onConflict: 'evaluation_id,item_id'
         })
 
-      if (error) throw error
+      if (scoreError) throw scoreError
 
       // ステータスを in_progress に更新（まだ pending の場合）
       if (currentEvaluation.status === 'pending') {
@@ -333,11 +340,6 @@ export default function EvaluationsPage() {
           .from('evaluations')
           .update({ status: 'in_progress' })
           .eq('id', currentEvaluation.id)
-
-        setCurrentEvaluation({
-          ...currentEvaluation,
-          status: 'in_progress'
-        })
       }
     } catch (error) {
       console.error('スコア保存エラー:', error)
