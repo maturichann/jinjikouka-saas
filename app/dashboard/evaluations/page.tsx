@@ -38,9 +38,10 @@ type Evaluation = {
   evaluatee_name: string
   period_id: string
   period_name: string
-  stage: 'self' | 'manager' | 'mg'
+  stage: 'self' | 'manager' | 'mg' | 'final'
   status: 'pending' | 'in_progress' | 'submitted'
   items: EvaluationItem[]
+  overall_comment?: string
 }
 
 export default function EvaluationsPage() {
@@ -314,6 +315,33 @@ export default function EvaluationsPage() {
     await saveScore(itemId, item.score || 0, comment, item.grade || '')
   }
 
+  const handleOverallCommentChange = async (comment: string) => {
+    if (!currentEvaluation) return
+
+    setCurrentEvaluation({
+      ...currentEvaluation,
+      overall_comment: comment
+    })
+
+    // 自動保存
+    await saveOverallComment(comment)
+  }
+
+  const saveOverallComment = async (comment: string) => {
+    if (!currentEvaluation) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluations')
+        .update({ overall_comment: comment })
+        .eq('id', currentEvaluation.id)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('総評保存エラー:', error)
+    }
+  }
+
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
     // グレードが選択されていない場合のみ保存しない
     if (!currentEvaluation || !grade) return
@@ -402,16 +430,18 @@ export default function EvaluationsPage() {
     const labels: Record<string, string> = {
       self: "本人評価",
       manager: "店長評価",
-      mg: "MG評価"
+      mg: "MG評価",
+      final: "最終評価"
     }
     return labels[stage] || stage
   }
 
   const getStageBadge = (stage: string) => {
-    const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
+    const variants: Record<string, { variant: "default" | "secondary" | "outline" | "destructive", label: string }> = {
       self: { variant: "outline", label: "本人評価" },
       manager: { variant: "default", label: "店長評価" },
-      mg: { variant: "secondary", label: "MG評価" }
+      mg: { variant: "secondary", label: "MG評価" },
+      final: { variant: "destructive", label: "最終評価" }
     }
     const config = variants[stage] || variants.self
     return <Badge variant={config.variant}>{config.label}</Badge>
@@ -447,7 +477,7 @@ export default function EvaluationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">評価実施</h1>
-        <p className="text-gray-600 mt-2">本人評価 → 店長評価 → MG評価</p>
+        <p className="text-gray-600 mt-2">本人評価 → 店長評価 → MG評価 → 最終評価</p>
       </div>
 
       <Card>
@@ -560,6 +590,26 @@ export default function EvaluationsPage() {
                 各項目の評価点を合計した総合スコアです
               </p>
             </div>
+
+            {currentEvaluation.stage === 'final' && (
+              <Card className="border-2 border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-red-900">総評コメント</CardTitle>
+                  <CardDescription>
+                    全ての評価を踏まえた総合的な評価コメントを記入してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="本評価期間における総合的な評価、強み、改善点、今後の期待など"
+                    value={currentEvaluation.overall_comment || ''}
+                    onChange={(e) => handleOverallCommentChange(e.target.value)}
+                    rows={6}
+                    className="bg-white"
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             <div className="flex gap-4">
               <Button

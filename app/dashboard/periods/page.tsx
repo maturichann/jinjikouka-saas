@@ -241,7 +241,7 @@ export default function PeriodsPage() {
       console.log('選択された評価期間:', selectedPeriodForAssignment)
       console.log('選択されたユーザーID:', selectedUserIds)
 
-      // 各ユーザーに対して3段階の評価を作成（self, manager, mg）
+      // 各ユーザーに対して4段階の評価を作成（self, manager, mg, final）
       const evaluationsToCreate = []
 
       for (const userId of selectedUserIds) {
@@ -269,6 +269,15 @@ export default function PeriodsPage() {
           evaluatee_id: userId,
           evaluator_id: null,
           stage: 'mg',
+          status: 'pending'
+        })
+
+        // 最終評価（管理者が実施）
+        evaluationsToCreate.push({
+          period_id: selectedPeriodForAssignment.id,
+          evaluatee_id: userId,
+          evaluator_id: null,
+          stage: 'final',
           status: 'pending'
         })
       }
@@ -569,6 +578,7 @@ export default function PeriodsPage() {
                 <li>本人評価（self）- 各ユーザー自身が実施</li>
                 <li>店長評価（manager）- 後で評価者を指定</li>
                 <li>MG評価（mg）- 後で評価者を指定</li>
+                <li>最終評価（final）- 管理者が最終調整・総評を記入</li>
               </ul>
             </div>
 

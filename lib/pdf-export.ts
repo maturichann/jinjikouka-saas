@@ -10,6 +10,7 @@ export type EvaluationPDFData = {
     status: string
     totalScore: number
     submittedAt: string
+    overall_comment?: string
     items?: {
       name: string
       description: string
@@ -68,6 +69,13 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
       </div>
     ` : '<p style="color: #6b7280; margin-top: 5px; font-size: 7px;">※ 評価項目の詳細データがありません</p>'
 
+    const overallCommentHTML = evaluation.overall_comment ? `
+      <div style="margin-top: 10px; padding: 10px; background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #991b1b;">総評コメント</h4>
+        <p style="margin: 0; font-size: 11px; color: #1f2937; white-space: pre-wrap; line-height: 1.6;">${evaluation.overall_comment}</p>
+      </div>
+    ` : ''
+
     return `
       <div style="page-break-before: ${index > 0 ? 'always' : 'auto'}; page-break-after: always;">
         <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
@@ -78,6 +86,7 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
           <p style="margin: 3px 0; font-size: 12px;"><strong>提出日:</strong> ${evaluation.submittedAt}</p>
         </div>
         ${itemsTableHTML}
+        ${overallCommentHTML}
       </div>
     `
   }).join('')
@@ -186,6 +195,13 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
         </div>
       ` : '<p style="color: #6b7280; margin-top: 5px; font-size: 7px;">※ 評価項目の詳細データがありません</p>'
 
+      const overallCommentHTML = evaluation.overall_comment ? `
+        <div style="margin-top: 10px; padding: 10px; background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #991b1b;">総評コメント</h4>
+          <p style="margin: 0; font-size: 11px; color: #1f2937; white-space: pre-wrap; line-height: 1.6;">${evaluation.overall_comment}</p>
+        </div>
+      ` : ''
+
       return `
         <div style="page-break-before: ${evalIndex > 0 || dataIndex > 0 ? 'always' : 'auto'}; page-break-after: always;">
           <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
@@ -196,6 +212,7 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
             <p style="margin: 3px 0; font-size: 12px;"><strong>ステータス:</strong> ${evaluation.status} | <strong>提出日:</strong> ${evaluation.submittedAt}</p>
           </div>
           ${itemsTableHTML}
+          ${overallCommentHTML}
         </div>
       `
     }).join('')
@@ -266,4 +283,95 @@ async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
   }
 
   return doc
+}
+
+// ランキングPDF生成用の型定義
+export type RankingPDFData = {
+  periodName: string
+  periodDates: string
+  rankings: {
+    rank: number
+    name: string
+    department: string
+    totalScore: number
+    previousScore?: number
+    scoreChange?: number
+  }[]
+}
+
+// ランキングPDF生成関数
+export async function generateRankingPDF(data: RankingPDFData) {
+  const rankingsHTML = data.rankings.map((entry, index) => {
+    const rankBadge =
+      entry.rank === 1 ? '🥇' :
+      entry.rank === 2 ? '🥈' :
+      entry.rank === 3 ? '🥉' : ''
+
+    const changeHTML = entry.scoreChange !== undefined ? `
+      <span style="font-size: 11px; color: ${entry.scoreChange > 0 ? '#16a34a' : entry.scoreChange < 0 ? '#dc2626' : '#6b7280'};">
+        ${entry.scoreChange > 0 ? '▲' : entry.scoreChange < 0 ? '▼' : '－'}
+        ${Math.abs(entry.scoreChange).toFixed(1)}
+      </span>
+    ` : '<span style="font-size: 11px; color: #6b7280;">-</span>'
+
+    return `
+      <tr style="background: ${index % 2 === 0 ? 'white' : '#f9fafb'}; ${entry.rank <= 3 ? 'background: #eff6ff;' : ''}">
+        <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; font-size: 16px;">
+          ${rankBadge} ${entry.rank}
+        </td>
+        <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: 500;">
+          ${entry.name}
+        </td>
+        <td style="padding: 12px; border: 1px solid #e5e7eb; color: #6b7280;">
+          ${entry.department}
+        </td>
+        <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: right;">
+          <span style="font-size: 20px; font-weight: bold; color: #2563eb;">
+            ${entry.totalScore.toFixed(1)}
+          </span>
+        </td>
+        <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center;">
+          ${changeHTML}
+        </td>
+      </tr>
+    `
+  }).join('')
+
+  const htmlContent = `
+    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 900px;">
+      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #2563eb; padding-bottom: 12px; color: #1e40af;">
+        評価点数ランキング
+      </h1>
+
+      <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #2563eb;">
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.periodName}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>期間:</strong> ${data.periodDates}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>対象者数:</strong> ${data.rankings.length}名</p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #2563eb; color: white;">
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">順位</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">氏名</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">部署</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">総合スコア</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">前年比</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rankingsHTML}
+        </tbody>
+      </table>
+
+      <div style="margin-top: 30px; padding: 15px; background: #f0f9ff; border-radius: 8px; font-size: 12px; color: #1e40af;">
+        <p style="margin: 0;"><strong>※</strong> 最終評価の総合スコアに基づくランキングです</p>
+        <p style="margin: 5px 0 0 0;"><strong>※</strong> 前年比は前年度同時期の最終評価との比較です</p>
+      </div>
+    </div>
+  `
+
+  const doc = await createPDFFromHTML(htmlContent)
+  const fileName = `ranking_${data.periodName.replace(/\s+/g, '_')}_${Date.now()}.pdf`
+  doc.save(fileName)
 }

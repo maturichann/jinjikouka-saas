@@ -598,6 +598,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 const selfEval = personEvals.find(e => e.stage === 'self')
                 const managerEval = personEvals.find(e => e.stage === 'manager')
                 const mgEval = personEvals.find(e => e.stage === 'mg')
+                const finalEval = personEvals.find(e => e.stage === 'final')
 
                 return (
                   <Card key={person} className="border-2">
@@ -835,7 +836,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
           <DialogHeader>
             <DialogTitle>評価比較表示</DialogTitle>
             <DialogDescription>
-              本人評価・店長評価・MG評価を横並びで比較
+              本人評価・店長評価・MG評価・最終評価を横並びで比較
             </DialogDescription>
           </DialogHeader>
           {comparisonPerson && (() => {
@@ -843,9 +844,10 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
             const selfEval = personEvals.find(e => e.stage === 'self')
             const managerEval = personEvals.find(e => e.stage === 'manager')
             const mgEval = personEvals.find(e => e.stage === 'mg')
+            const finalEval = personEvals.find(e => e.stage === 'final')
 
             // 全ての評価項目を取得（本人評価から項目リストを取得）
-            const items = selfEval?.items || managerEval?.items || mgEval?.items || []
+            const items = selfEval?.items || managerEval?.items || mgEval?.items || finalEval?.items || []
 
             return (
               <div className="space-y-4">
@@ -865,6 +867,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <th className="border p-1 text-center bg-blue-50 text-xs" colSpan={2}>本人評価</th>
                           <th className="border p-1 text-center bg-green-50 text-xs" colSpan={2}>店長評価</th>
                           <th className="border p-1 text-center bg-purple-50 text-xs" colSpan={2}>MG評価</th>
+                          <th className="border p-1 text-center bg-red-50 text-xs" colSpan={2}>最終評価</th>
                         </tr>
                         <tr className="bg-gray-50 text-[10px]">
                           <th className="border px-1 py-0.5 text-left sticky left-0 bg-gray-50 z-10">説明</th>
@@ -874,6 +877,8 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <th className="border px-1 py-0.5 text-center bg-green-50">コメント</th>
                           <th className="border px-1 py-0.5 text-center bg-purple-50 w-12">スコア</th>
                           <th className="border px-1 py-0.5 text-center bg-purple-50">コメント</th>
+                          <th className="border px-1 py-0.5 text-center bg-red-50 w-12">スコア</th>
+                          <th className="border px-1 py-0.5 text-center bg-red-50">コメント</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -882,6 +887,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           const selfItem = selfEval?.items?.find(i => i.name === item.name)
                           const managerItem = managerEval?.items?.find(i => i.name === item.name)
                           const mgItem = mgEval?.items?.find(i => i.name === item.name)
+                          const finalItem = finalEval?.items?.find(i => i.name === item.name)
 
                           return (
                             <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
@@ -943,6 +949,24 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                   <span className="text-gray-400">-</span>
                                 )}
                               </td>
+                              {/* 最終評価 */}
+                              <td className="border px-1 py-0.5 text-center bg-red-50">
+                                {finalEval?.status === 'submitted' && finalItem ? (
+                                  <div>
+                                    {finalItem.grade && <div className="text-[10px] font-semibold text-gray-700">{finalItem.grade}</div>}
+                                    <span className="text-sm font-bold text-red-600">{finalItem.score}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="border px-1 py-0.5 text-[10px] bg-red-50">
+                                {finalEval?.status === 'submitted' && finalItem?.comment ? (
+                                  finalItem.comment
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
                             </tr>
                           )
                         })}
@@ -959,6 +983,9 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <td className="border p-2 text-center text-xl text-purple-600 bg-purple-50" colSpan={2}>
                             {mgEval?.status === 'submitted' ? mgEval.totalScore.toFixed(1) : '-'}
                           </td>
+                          <td className="border p-2 text-center text-xl text-red-600 bg-red-50" colSpan={2}>
+                            {finalEval?.status === 'submitted' ? finalEval.totalScore.toFixed(1) : '-'}
+                          </td>
                         </tr>
                       </tfoot>
                     </table>
@@ -966,6 +993,14 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 ) : (
                   <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded">
                     <p>※ 評価項目データがありません。</p>
+                  </div>
+                )}
+
+                {/* 総評コメント表示 */}
+                {finalEval?.status === 'submitted' && finalEval.overall_comment && (
+                  <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <h3 className="text-lg font-semibold text-red-900 mb-2">総評コメント</h3>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{finalEval.overall_comment}</p>
                   </div>
                 )}
               </div>
