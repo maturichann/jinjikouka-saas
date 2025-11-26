@@ -36,10 +36,11 @@ type EvaluationResult = {
   evaluatee: string
   period: string
   department: string
-  stage: 'self' | 'manager' | 'mg'
+  stage: 'self' | 'manager' | 'mg' | 'final'
   status: 'pending' | 'submitted'
   totalScore: number
   submittedAt: string
+  overall_comment?: string
   items?: {
     name: string
     description: string
