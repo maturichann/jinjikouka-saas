@@ -514,7 +514,6 @@ export default function TemplatesPage() {
                     <TableHead>項目名</TableHead>
                     <TableHead>説明</TableHead>
                     <TableHead>グレード配点</TableHead>
-                    <TableHead>採点基準</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -550,11 +549,6 @@ export default function TemplatesPage() {
                                     <span>E:{item.grade_scores.E}</span>
                                   </>
                                 ) : '未設定'}
-                              </div>
-                            </TableCell>
-                            <TableCell className="max-w-xs">
-                              <div className="text-xs whitespace-pre-line text-gray-600">
-                                {item.criteria || "未設定"}
                               </div>
                             </TableCell>
                             <TableCell>
