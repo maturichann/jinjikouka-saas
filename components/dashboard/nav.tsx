@@ -32,7 +32,7 @@ const navItems = [
     href: "/dashboard/results",
   },
   {
-    title: "🏆 評価ランキング",
+    title: "評価ランキング",
     href: "/dashboard/ranking",
     adminOnly: true,
   },

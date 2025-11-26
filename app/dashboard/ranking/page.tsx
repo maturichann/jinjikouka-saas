@@ -209,9 +209,9 @@ export default function RankingPage() {
   }
 
   const getRankBadge = (rank: number) => {
-    if (rank === 1) return <Badge className="bg-yellow-500">🥇 1位</Badge>
-    if (rank === 2) return <Badge className="bg-gray-400">🥈 2位</Badge>
-    if (rank === 3) return <Badge className="bg-orange-600">🥉 3位</Badge>
+    if (rank === 1) return <Badge className="bg-yellow-500">1位</Badge>
+    if (rank === 2) return <Badge className="bg-gray-400">2位</Badge>
+    if (rank === 3) return <Badge className="bg-orange-600">3位</Badge>
     return <Badge variant="outline">{rank}位</Badge>
   }
 

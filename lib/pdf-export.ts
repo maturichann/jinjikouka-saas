@@ -302,11 +302,6 @@ export type RankingPDFData = {
 // ランキングPDF生成関数
 export async function generateRankingPDF(data: RankingPDFData) {
   const rankingsHTML = data.rankings.map((entry, index) => {
-    const rankBadge =
-      entry.rank === 1 ? '🥇' :
-      entry.rank === 2 ? '🥈' :
-      entry.rank === 3 ? '🥉' : ''
-
     const changeHTML = entry.scoreChange !== undefined ? `
       <span style="font-size: 11px; color: ${entry.scoreChange > 0 ? '#16a34a' : entry.scoreChange < 0 ? '#dc2626' : '#6b7280'};">
         ${entry.scoreChange > 0 ? '▲' : entry.scoreChange < 0 ? '▼' : '－'}
@@ -317,7 +312,7 @@ export async function generateRankingPDF(data: RankingPDFData) {
     return `
       <tr style="background: ${index % 2 === 0 ? 'white' : '#f9fafb'}; ${entry.rank <= 3 ? 'background: #eff6ff;' : ''}">
         <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; font-size: 16px;">
-          ${rankBadge} ${entry.rank}
+          ${entry.rank}
         </td>
         <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: 500;">
           ${entry.name}
