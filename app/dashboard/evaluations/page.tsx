@@ -170,7 +170,7 @@ export default function EvaluationsPage() {
       setIsLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, supabase, currentEvaluation])
+  }, [user, supabase])
 
   const loadEvaluation = useCallback(async (evaluationId: string) => {
     try {
