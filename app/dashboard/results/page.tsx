@@ -858,51 +858,49 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
 
                 {items.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-sm">
+                    <table className="w-full border-collapse text-xs">
                       <thead>
                         <tr className="bg-gray-100">
-                          <th className="border p-2 text-left sticky left-0 bg-gray-100 z-10">項目</th>
-                          <th className="border p-2 text-center bg-blue-50" colSpan={2}>本人評価</th>
-                          <th className="border p-2 text-center bg-green-50" colSpan={2}>店長評価</th>
-                          <th className="border p-2 text-center bg-purple-50" colSpan={2}>MG評価</th>
+                          <th className="border p-1 text-left sticky left-0 bg-gray-100 z-10 text-xs">項目</th>
+                          <th className="border p-1 text-center bg-blue-50 text-xs" colSpan={2}>本人評価</th>
+                          <th className="border p-1 text-center bg-green-50 text-xs" colSpan={2}>店長評価</th>
+                          <th className="border p-1 text-center bg-purple-50 text-xs" colSpan={2}>MG評価</th>
                         </tr>
-                        <tr className="bg-gray-50 text-xs">
-                          <th className="border p-2 text-left sticky left-0 bg-gray-50 z-10">説明</th>
-                          <th className="border p-1 text-center bg-blue-50 w-16">スコア</th>
-                          <th className="border p-1 text-center bg-blue-50">コメント</th>
-                          <th className="border p-1 text-center bg-green-50 w-16">スコア</th>
-                          <th className="border p-1 text-center bg-green-50">コメント</th>
-                          <th className="border p-1 text-center bg-purple-50 w-16">スコア</th>
-                          <th className="border p-1 text-center bg-purple-50">コメント</th>
+                        <tr className="bg-gray-50 text-[10px]">
+                          <th className="border px-1 py-0.5 text-left sticky left-0 bg-gray-50 z-10">説明</th>
+                          <th className="border px-1 py-0.5 text-center bg-blue-50 w-12">スコア</th>
+                          <th className="border px-1 py-0.5 text-center bg-blue-50">コメント</th>
+                          <th className="border px-1 py-0.5 text-center bg-green-50 w-12">スコア</th>
+                          <th className="border px-1 py-0.5 text-center bg-green-50">コメント</th>
+                          <th className="border px-1 py-0.5 text-center bg-purple-50 w-12">スコア</th>
+                          <th className="border px-1 py-0.5 text-center bg-purple-50">コメント</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item, idx) => {
-                          const selfItem = selfEval?.items?.[idx]
-                          const managerItem = managerEval?.items?.[idx]
-                          const mgItem = mgEval?.items?.[idx]
+                          // 項目名でマッチング（インデックスではなく）
+                          const selfItem = selfEval?.items?.find(i => i.name === item.name)
+                          const managerItem = managerEval?.items?.find(i => i.name === item.name)
+                          const mgItem = mgEval?.items?.find(i => i.name === item.name)
 
                           return (
                             <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="border p-2 sticky left-0 bg-inherit z-10">
-                                <div className="font-semibold">{item.name}</div>
-                                <div className="text-xs text-gray-600 mt-1">{item.description}</div>
-                                {item.criteria && (
-                                  <div className="text-xs text-blue-600 mt-1">基準: {item.criteria}</div>
-                                )}
+                              <td className="border px-1 py-0.5 sticky left-0 bg-inherit z-10">
+                                <div className="font-semibold text-xs">{item.name}</div>
+                                <div className="text-[10px] text-gray-600 mt-0.5">{item.description}</div>
                               </td>
                               {/* 本人評価 */}
-                              <td className="border p-2 text-center bg-blue-50">
+                              <td className="border px-1 py-0.5 text-center bg-blue-50">
                                 {selfEval?.status === 'submitted' && selfItem ? (
                                   <div>
-                                    {selfItem.grade && <div className="text-sm font-semibold text-gray-700">{selfItem.grade}</div>}
-                                    <span className="text-lg font-bold text-blue-600">{selfItem.score}</span>
+                                    {selfItem.grade && <div className="text-[10px] font-semibold text-gray-700">{selfItem.grade}</div>}
+                                    <span className="text-sm font-bold text-blue-600">{selfItem.score}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400">-</span>
+                                  <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border p-2 text-sm bg-blue-50">
+                              <td className="border px-1 py-0.5 text-[10px] bg-blue-50">
                                 {selfEval?.status === 'submitted' && selfItem?.comment ? (
                                   selfItem.comment
                                 ) : (
@@ -910,17 +908,17 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               {/* 店長評価 */}
-                              <td className="border p-2 text-center bg-green-50">
+                              <td className="border px-1 py-0.5 text-center bg-green-50">
                                 {managerEval?.status === 'submitted' && managerItem ? (
                                   <div>
-                                    {managerItem.grade && <div className="text-sm font-semibold text-gray-700">{managerItem.grade}</div>}
-                                    <span className="text-lg font-bold text-green-600">{managerItem.score}</span>
+                                    {managerItem.grade && <div className="text-[10px] font-semibold text-gray-700">{managerItem.grade}</div>}
+                                    <span className="text-sm font-bold text-green-600">{managerItem.score}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400">-</span>
+                                  <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border p-2 text-sm bg-green-50">
+                              <td className="border px-1 py-0.5 text-[10px] bg-green-50">
                                 {managerEval?.status === 'submitted' && managerItem?.comment ? (
                                   managerItem.comment
                                 ) : (
@@ -928,17 +926,17 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               {/* MG評価 */}
-                              <td className="border p-2 text-center bg-purple-50">
+                              <td className="border px-1 py-0.5 text-center bg-purple-50">
                                 {mgEval?.status === 'submitted' && mgItem ? (
                                   <div>
-                                    {mgItem.grade && <div className="text-sm font-semibold text-gray-700">{mgItem.grade}</div>}
-                                    <span className="text-lg font-bold text-purple-600">{mgItem.score}</span>
+                                    {mgItem.grade && <div className="text-[10px] font-semibold text-gray-700">{mgItem.grade}</div>}
+                                    <span className="text-sm font-bold text-purple-600">{mgItem.score}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400">-</span>
+                                  <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border p-2 text-sm bg-purple-50">
+                              <td className="border px-1 py-0.5 text-[10px] bg-purple-50">
                                 {mgEval?.status === 'submitted' && mgItem?.comment ? (
                                   mgItem.comment
                                 ) : (
