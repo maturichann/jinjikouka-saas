@@ -251,16 +251,18 @@ export default function ResultsPage() {
     const labels: Record<string, string> = {
       self: "本人評価",
       manager: "店長評価",
-      mg: "MG評価"
+      mg: "MG評価",
+      final: "最終評価"
     }
     return labels[stage] || stage
   }
 
   const getStageBadge = (stage: string) => {
-    const variants: Record<string, { variant: "default" | "secondary" | "outline" }> = {
+    const variants: Record<string, { variant: "default" | "secondary" | "outline" | "destructive" }> = {
       self: { variant: "outline" },
       manager: { variant: "default" },
-      mg: { variant: "secondary" }
+      mg: { variant: "secondary" },
+      final: { variant: "destructive" }
     }
     const config = variants[stage] || variants.self
     return <Badge variant={config.variant}>{getStageLabel(stage)}</Badge>
@@ -332,7 +334,7 @@ export default function ResultsPage() {
   }, [filteredEvaluations])
 
   const getPersonEvaluations = (name: string) => {
-    const stageOrder = { 'self': 1, 'manager': 2, 'mg': 3 }
+    const stageOrder = { 'self': 1, 'manager': 2, 'mg': 3, 'final': 4 }
     return evaluations
       .filter(e => e.evaluatee === name)
       .sort((a, b) => stageOrder[a.stage] - stageOrder[b.stage])
