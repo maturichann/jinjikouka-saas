@@ -309,7 +309,8 @@ export default function EvaluationsPage() {
   }
 
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
-    if (!currentEvaluation || score === 0) return
+    // グレードが選択されていない場合のみ保存しない
+    if (!currentEvaluation || !grade) return
 
     try {
       const { error } = await supabase
@@ -354,10 +355,10 @@ export default function EvaluationsPage() {
   const handleSubmit = async () => {
     if (!currentEvaluation) return
 
-    // 全項目にスコアが入っているか確認
-    const hasAllScores = currentEvaluation.items.every(item => item.score > 0)
-    if (!hasAllScores) {
-      alert('全ての評価項目にスコアを入力してください')
+    // 全項目にグレードが選択されているか確認
+    const hasAllGrades = currentEvaluation.items.every(item => item.grade && item.grade !== '')
+    if (!hasAllGrades) {
+      alert('全ての評価項目にグレードを選択してください')
       return
     }
 
