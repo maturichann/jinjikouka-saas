@@ -102,12 +102,12 @@ export default function RankingPage() {
 
         // スコアで計算してランキング作成
         const rankingData: RankingEntry[] = await Promise.all(
-          (evaluations || []).map(async (eval: any) => {
+          (evaluations || []).map(async (evaluation: any) => {
             // 評価項目のスコアを取得
             const { data: scores } = await supabase
               .from('evaluation_scores')
               .select('score')
-              .eq('evaluation_id', eval.id)
+              .eq('evaluation_id', evaluation.id)
 
             const totalScore = scores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0
 
@@ -120,7 +120,7 @@ export default function RankingPage() {
                 .from('evaluations')
                 .select('id')
                 .eq('period_id', previousPeriodId)
-                .eq('evaluatee_id', eval.evaluatee_id)
+                .eq('evaluatee_id', evaluation.evaluatee_id)
                 .eq('stage', 'final')
                 .eq('status', 'submitted')
                 .maybeSingle()
@@ -137,9 +137,9 @@ export default function RankingPage() {
             }
 
             return {
-              evaluatee_id: eval.evaluatee_id,
-              evaluatee_name: eval.evaluatee?.name || '不明',
-              department: eval.evaluatee?.department || '不明',
+              evaluatee_id: evaluation.evaluatee_id,
+              evaluatee_name: evaluation.evaluatee?.name || '不明',
+              department: evaluation.evaluatee?.department || '不明',
               totalScore,
               rank: 0, // 後で設定
               previousScore,
