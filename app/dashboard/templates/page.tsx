@@ -437,7 +437,7 @@ export default function TemplatesPage() {
                           onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
                         />
                         <datalist id="categories">
-                          {Array.from(new Set(templates.flatMap(t => t.items.map(i => i.category).filter(Boolean)))).map(cat => (
+                          {selectedTemplate && Array.from(new Set(selectedTemplate.items.map(i => i.category).filter(Boolean))).map(cat => (
                             <option key={cat} value={cat} />
                           ))}
                         </datalist>
@@ -644,7 +644,7 @@ export default function TemplatesPage() {
                   onChange={(e) => editingItem && setEditingItem({ ...editingItem, category: e.target.value })}
                 />
                 <datalist id="edit-categories">
-                  {Array.from(new Set(templates.flatMap(t => t.items.map(i => i.category).filter(Boolean)))).map(cat => (
+                  {selectedTemplate && Array.from(new Set(selectedTemplate.items.map(i => i.category).filter(Boolean))).map(cat => (
                     <option key={cat} value={cat} />
                   ))}
                 </datalist>
