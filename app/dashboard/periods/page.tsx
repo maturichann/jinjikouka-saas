@@ -141,7 +141,7 @@ export default function PeriodsPage() {
 
       if (error) throw error
 
-      setNewPeriod({ name: "", start_date: "", end_date: "", template_id: "" })
+      setNewPeriod({ name: "", start_date: "", end_date: "", template_id: "", period_summary: "" })
       setIsDialogOpen(false)
       fetchPeriods()
     } catch (error) {
