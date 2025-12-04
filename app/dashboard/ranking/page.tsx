@@ -316,6 +316,20 @@ export default function RankingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 期間全体の総評 */}
+      {!isLoading && selectedPeriod && periods.find(p => p.id === selectedPeriod)?.period_summary && (
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-blue-900">期間全体の総評</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-800 whitespace-pre-wrap">
+              {periods.find(p => p.id === selectedPeriod)?.period_summary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 
 type Period = {
   id: string
@@ -33,6 +34,7 @@ type Period = {
   end_date: string
   status: 'draft' | 'active' | 'completed'
   template_id?: string
+  period_summary?: string
 }
 
 type UserForAssignment = {
@@ -59,7 +61,8 @@ export default function PeriodsPage() {
     name: "",
     start_date: "",
     end_date: "",
-    template_id: ""
+    template_id: "",
+    period_summary: ""
   })
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null)
   const supabase = createClient()
@@ -404,6 +407,16 @@ export default function PeriodsPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <Label htmlFor="period_summary">期間全体の総評（任意）</Label>
+                <Textarea
+                  id="period_summary"
+                  placeholder="この評価期間全体に対する総評やコメントを記入してください"
+                  value={newPeriod.period_summary}
+                  onChange={(e) => setNewPeriod({ ...newPeriod, period_summary: e.target.value })}
+                  rows={4}
+                />
+              </div>
               <Button onClick={handleCreate} className="w-full">作成</Button>
             </div>
           </DialogContent>
@@ -517,6 +530,16 @@ export default function PeriodsPage() {
                 <option value="active">実施中</option>
                 <option value="completed">完了</option>
               </select>
+            </div>
+            <div>
+              <Label htmlFor="edit-period_summary">期間全体の総評（任意）</Label>
+              <Textarea
+                id="edit-period_summary"
+                placeholder="この評価期間全体に対する総評やコメントを記入してください"
+                value={editingPeriod?.period_summary || ""}
+                onChange={(e) => editingPeriod && setEditingPeriod({ ...editingPeriod, period_summary: e.target.value })}
+                rows={4}
+              />
             </div>
             <Button onClick={handleEdit} className="w-full">更新</Button>
           </div>
