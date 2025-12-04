@@ -1,14 +1,15 @@
--- 評価テーブル（多段階評価: 本人 → 店長 → MG）
+-- 評価テーブル（多段階評価: 本人 → 店長 → MG → 最終評価）
 CREATE TABLE IF NOT EXISTS public.evaluations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   period_id UUID REFERENCES public.evaluation_periods(id) ON DELETE CASCADE NOT NULL,
   evaluatee_id UUID REFERENCES public.users(id) NOT NULL,
   evaluator_id UUID REFERENCES public.users(id),
-  stage TEXT NOT NULL CHECK (stage IN ('self', 'manager', 'mg')),
+  stage TEXT NOT NULL CHECK (stage IN ('self', 'manager', 'mg', 'final')),
   status TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'submitted')) DEFAULT 'pending',
   submitted_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  overall_comment TEXT DEFAULT '',
   UNIQUE(period_id, evaluatee_id, stage)
 );
 
