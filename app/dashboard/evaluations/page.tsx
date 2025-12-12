@@ -226,6 +226,9 @@ export default function EvaluationsPage() {
 
       const templateItems = (templateData?.evaluation_items as any) || []
 
+      // order_indexで並び替え
+      templateItems.sort((a: any, b: any) => (a.order_index ?? 999) - (b.order_index ?? 999))
+
       // 既存のスコアを取得
       const { data: scoresData, error: scoresError } = await supabase
         .from('evaluation_scores')

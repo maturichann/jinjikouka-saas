@@ -154,7 +154,7 @@ export default function ResultsPage() {
               score,
               comment,
               grade,
-              item:evaluation_items(name, description, weight, criteria)
+              item:evaluation_items(name, description, weight, criteria, order_index)
             `)
             .eq('evaluation_id', evaluation.id)
 
@@ -166,7 +166,7 @@ export default function ResultsPage() {
               .select(`
                 score,
                 comment,
-                item:evaluation_items(name, description, weight, criteria)
+                item:evaluation_items(name, description, weight, criteria, order_index)
               `)
               .eq('evaluation_id', evaluation.id)
 
@@ -181,8 +181,12 @@ export default function ResultsPage() {
               score: s.score || 0,
               comment: s.comment || '',
               criteria: s.item?.criteria || '',
-              grade: ''
+              grade: '',
+              order_index: s.item?.order_index ?? 999
             })) || []
+
+            // order_indexで並び替え
+            items.sort((a, b) => a.order_index - b.order_index)
 
             return {
               id: evaluation.id,
@@ -212,8 +216,12 @@ export default function ResultsPage() {
             score: s.score || 0,
             comment: s.comment || '',
             criteria: s.item?.criteria || '',
-            grade: s.grade || ''
+            grade: s.grade || '',
+            order_index: s.item?.order_index ?? 999
           })) || []
+
+          // order_indexで並び替え
+          items.sort((a, b) => a.order_index - b.order_index)
 
           return {
             id: evaluation.id,
