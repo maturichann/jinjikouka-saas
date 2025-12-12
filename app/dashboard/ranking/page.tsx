@@ -26,11 +26,7 @@ export default function RankingPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("")
   const [rankings, setRankings] = useState<RankingEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
-
-  if (!supabaseRef.current) {
-    supabaseRef.current = createClient()
-  }
+  const supabaseRef = useRef<ReturnType<typeof createClient>>(createClient())
 
   // 管理者チェック
   useEffect(() => {
@@ -41,15 +37,15 @@ export default function RankingPage() {
 
   // 評価期間リストを取得
   useEffect(() => {
+    if (!user || user.role !== 'admin') return
+
     const supabase = supabaseRef.current
-    if (!supabase || !user || user.role !== 'admin') return
+    if (!supabase) return
 
     let isActive = true
 
-    async function fetchPeriods() {
-      if (!supabase) return
-
-      const { data, error } = await supabase
+    async function fetchPeriods(client: ReturnType<typeof createClient>) {
+      const { data, error } = await client
         .from('evaluation_periods')
         .select('*')
         .order('start_date', { ascending: false })
@@ -69,7 +65,7 @@ export default function RankingPage() {
       }
     }
 
-    fetchPeriods()
+    fetchPeriods(supabase)
 
     return () => {
       isActive = false
@@ -78,14 +74,14 @@ export default function RankingPage() {
 
   // ランキングデータを取得
   useEffect(() => {
+    if (!user || user.role !== 'admin') return
+
     const supabase = supabaseRef.current
-    if (!supabase || !user || user.role !== 'admin') return
+    if (!supabase) return
 
     let isActive = true
 
-    async function fetchRankings() {
-      if (!supabase) return
-
+    async function fetchRankings(client: ReturnType<typeof createClient>) {
       if (!selectedPeriod) {
         setRankings([])
         return
@@ -94,7 +90,7 @@ export default function RankingPage() {
       setIsLoading(true)
       try {
         // 現在の期間の情報を取得
-        const { data: currentPeriod, error: currentPeriodError } = await supabase
+        const { data: currentPeriod, error: currentPeriodError } = await client
           .from('evaluation_periods')
           .select('*')
           .eq('id', selectedPeriod)
@@ -109,7 +105,7 @@ export default function RankingPage() {
         }
 
         // 最終評価のデータを取得
-        const { data: evaluations, error } = await supabase
+        const { data: evaluations, error } = await client
           .from('evaluations')
           .select(`
             *,
@@ -127,7 +123,7 @@ export default function RankingPage() {
         let previousPeriodId: string | null = null
         if (currentPeriod) {
           const currentYear = new Date(currentPeriod.start_date).getFullYear()
-          const { data: previousPeriods } = await supabase
+          const { data: previousPeriods } = await client
             .from('evaluation_periods')
             .select('id, start_date')
             .gte('start_date', `${currentYear - 1}-01-01`)
@@ -146,7 +142,7 @@ export default function RankingPage() {
         const rankingData: RankingEntry[] = await Promise.all(
           (evaluations || []).map(async (evaluation: any) => {
             // 評価項目のスコアを取得
-            const { data: scores } = await supabase
+            const { data: scores } = await client
               .from('evaluation_scores')
               .select('score')
               .eq('evaluation_id', evaluation.id)
@@ -158,7 +154,7 @@ export default function RankingPage() {
             let scoreChange: number | undefined
 
             if (previousPeriodId) {
-              const { data: previousEval } = await supabase
+              const { data: previousEval } = await client
                 .from('evaluations')
                 .select('id')
                 .eq('period_id', previousPeriodId)
@@ -168,7 +164,7 @@ export default function RankingPage() {
                 .maybeSingle()
 
               if (previousEval) {
-                const { data: previousScores } = await supabase
+                const { data: previousScores } = await client
                   .from('evaluation_scores')
                   .select('score')
                   .eq('evaluation_id', previousEval.id)
@@ -209,7 +205,7 @@ export default function RankingPage() {
       }
     }
 
-    fetchRankings()
+    fetchRankings(supabase)
 
     return () => {
       isActive = false
