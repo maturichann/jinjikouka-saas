@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useAuth, canViewAllEvaluations } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -66,10 +66,15 @@ export default function ResultsPage() {
   const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   const fetchEvaluations = useCallback(async () => {
-    if (!user) return
+    const supabase = supabaseRef.current
+    if (!user || !supabase) return
 
     try {
       // 権限に応じた評価データを取得
@@ -239,7 +244,7 @@ export default function ResultsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user, supabase])
+  }, [user])
 
   useEffect(() => {
     if (user) {

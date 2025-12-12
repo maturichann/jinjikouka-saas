@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth, canManageTemplates } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -63,9 +63,16 @@ export default function TemplatesPage() {
   })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   const fetchTemplates = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       // テンプレート取得
       const { data: templatesData, error: templatesError } = await supabase
@@ -100,14 +107,15 @@ export default function TemplatesPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchTemplates()
   }, [fetchTemplates])
 
   const handleCreateTemplate = async () => {
-    if (!user) return
+    const supabase = supabaseRef.current
+    if (!user || !supabase) return
 
     try {
       const { data, error } = await supabase
@@ -130,7 +138,8 @@ export default function TemplatesPage() {
   }
 
   const handleAddItem = async () => {
-    if (!selectedTemplate) return
+    const supabase = supabaseRef.current
+    if (!selectedTemplate || !supabase) return
 
     try {
       // 現在の項目数を取得してorder_indexを設定
@@ -171,7 +180,8 @@ export default function TemplatesPage() {
   }
 
   const handleEditTemplate = async () => {
-    if (!editingTemplate) return
+    const supabase = supabaseRef.current
+    if (!editingTemplate || !supabase) return
 
     try {
       const { error } = await supabase
@@ -194,7 +204,8 @@ export default function TemplatesPage() {
   }
 
   const handleEditItem = async () => {
-    if (!editingItem || !selectedTemplate) return
+    const supabase = supabaseRef.current
+    if (!editingItem || !selectedTemplate || !supabase) return
 
     try {
       const { error } = await supabase
@@ -222,7 +233,8 @@ export default function TemplatesPage() {
   }
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("このテンプレートを削除してもよろしいですか？\n\n※ このテンプレートに関連する評価項目、評価、評価スコアも全て削除されます。")) return
+    const supabase = supabaseRef.current
+    if (!confirm("このテンプレートを削除してもよろしいですか？\n\n※ このテンプレートに関連する評価項目、評価、評価スコアも全て削除されます。") || !supabase) return
 
     try {
       // 1. このテンプレートの評価項目IDを取得
@@ -298,7 +310,8 @@ export default function TemplatesPage() {
   }
 
   const handleDeleteItem = async (templateId: string, itemId: string) => {
-    if (!confirm("この評価項目を削除してもよろしいですか？")) return
+    const supabase = supabaseRef.current
+    if (!confirm("この評価項目を削除してもよろしいですか？") || !supabase) return
 
     try {
       const { error } = await supabase

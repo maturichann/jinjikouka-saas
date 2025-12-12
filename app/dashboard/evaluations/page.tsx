@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth, canEvaluateOthers } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -50,10 +50,15 @@ export default function EvaluationsPage() {
   const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   const fetchAvailableEvaluations = useCallback(async () => {
-    if (!user) return
+    const supabase = supabaseRef.current
+    if (!user || !supabase) return
 
     try {
       let evaluationsData = []
@@ -170,10 +175,12 @@ export default function EvaluationsPage() {
     } finally {
       setIsLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, supabase])
+  }, [user])
 
   const loadEvaluation = useCallback(async (evaluationId: string) => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       setIsLoading(true)
 
@@ -260,7 +267,7 @@ export default function EvaluationsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -328,7 +335,8 @@ export default function EvaluationsPage() {
   }
 
   const saveOverallComment = async (comment: string) => {
-    if (!currentEvaluation) return
+    const supabase = supabaseRef.current
+    if (!currentEvaluation || !supabase) return
 
     try {
       const { error } = await supabase
@@ -343,8 +351,9 @@ export default function EvaluationsPage() {
   }
 
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
+    const supabase = supabaseRef.current
     // グレードが選択されていない場合のみ保存しない
-    if (!currentEvaluation || !grade) return
+    if (!currentEvaluation || !grade || !supabase) return
 
     try {
       // スコアを保存
@@ -383,7 +392,8 @@ export default function EvaluationsPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentEvaluation) return
+    const supabase = supabaseRef.current
+    if (!currentEvaluation || !supabase) return
 
     // 全項目にグレードが選択されているか確認
     const hasAllGrades = currentEvaluation.items.every(item => item.grade && item.grade !== '')

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -54,10 +54,17 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
   const [newPasswordInput, setNewPasswordInput] = useState("")
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   // ユーザー一覧を取得
   const fetchUsers = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       const { data, error } = await supabase
         .from('users')
@@ -72,7 +79,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchUsers()
@@ -90,6 +97,9 @@ export default function UsersPage() {
   }
 
   const handleCreateUser = async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     // パスワードはスタッフコードと同じ
     const password = newUser.staff_code
 
@@ -119,7 +129,8 @@ export default function UsersPage() {
   }
 
   const handleEditUser = async () => {
-    if (!editingUser) return
+    const supabase = supabaseRef.current
+    if (!editingUser || !supabase) return
 
     try {
       const { error } = await supabase
@@ -146,7 +157,8 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("このユーザーを削除してもよろしいですか？\n\n注意: このユーザーに関連する全ての評価データも削除されます。")) return
+    const supabase = supabaseRef.current
+    if (!confirm("このユーザーを削除してもよろしいですか？\n\n注意: このユーザーに関連する全ての評価データも削除されます。") || !supabase) return
 
     try {
       // 関連する評価を削除（evaluation_scoresは外部キー制約でカスケード削除される）
@@ -175,10 +187,12 @@ export default function UsersPage() {
   }
 
   const handleResetPassword = async () => {
+    const supabase = supabaseRef.current
     if (!resetPasswordUserId || !newPasswordInput.trim()) {
       alert('新しいパスワードを入力してください')
       return
     }
+    if (!supabase) return
 
     try {
       const { error } = await supabase

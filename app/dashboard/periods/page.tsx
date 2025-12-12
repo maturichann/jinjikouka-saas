@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth, canManagePeriods } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -65,9 +65,16 @@ export default function PeriodsPage() {
     period_summary: ""
   })
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   const fetchTemplates = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       const { data, error } = await supabase
         .from('evaluation_templates')
@@ -80,9 +87,12 @@ export default function PeriodsPage() {
     } catch (error) {
       console.error('テンプレートの取得エラー:', error)
     }
-  }, [supabase])
+  }, [])
 
   const fetchUsers = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       const { data, error } = await supabase
         .from('users')
@@ -94,9 +104,12 @@ export default function PeriodsPage() {
     } catch (error) {
       console.error('ユーザーの取得エラー:', error)
     }
-  }, [supabase])
+  }, [])
 
   const fetchPeriods = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       const { data, error } = await supabase
         .from('evaluation_periods')
@@ -111,7 +124,7 @@ export default function PeriodsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchPeriods()
@@ -120,7 +133,8 @@ export default function PeriodsPage() {
   }, [fetchPeriods, fetchTemplates, fetchUsers])
 
   const handleCreate = async () => {
-    if (!user) return
+    const supabase = supabaseRef.current
+    if (!user || !supabase) return
 
     if (!newPeriod.template_id) {
       alert('評価テンプレートを選択してください')
@@ -151,7 +165,8 @@ export default function PeriodsPage() {
   }
 
   const handleEdit = async () => {
-    if (!editingPeriod) return
+    const supabase = supabaseRef.current
+    if (!editingPeriod || !supabase) return
 
     try {
       const { error } = await supabase
@@ -176,7 +191,8 @@ export default function PeriodsPage() {
   }
 
   const handleDelete = async (periodId: string) => {
-    if (!confirm("この評価期間を削除してもよろしいですか？")) return
+    const supabase = supabaseRef.current
+    if (!confirm("この評価期間を削除してもよろしいですか？") || !supabase) return
 
     try {
       const { error } = await supabase
@@ -194,6 +210,9 @@ export default function PeriodsPage() {
   }
 
   const handleStatusChange = async (periodId: string, newStatus: 'draft' | 'active' | 'completed') => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
     try {
       const { error } = await supabase
         .from('evaluation_periods')
@@ -232,10 +251,12 @@ export default function PeriodsPage() {
   }
 
   const handleAssignEvaluations = async () => {
+    const supabase = supabaseRef.current
     if (!selectedPeriodForAssignment || selectedUserIds.length === 0) {
       alert('ユーザーを選択してください')
       return
     }
+    if (!supabase) return
 
     try {
       setIsAssigning(true)
