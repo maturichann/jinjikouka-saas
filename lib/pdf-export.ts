@@ -24,9 +24,51 @@ export type EvaluationPDFData = {
 }
 
 export async function generateEvaluationPDF(data: EvaluationPDFData) {
-  // HTMLコンテンツを生成
-  const evaluationsHTML = data.evaluations.map((evaluation, index) => {
-    // 評価項目の表を生成（50項目対応で超コンパクト）
+  const doc = new jsPDF('p', 'mm', 'a4')
+  await (document as any).fonts?.ready
+
+  // ヘッダーページ(表紙)を生成
+  const headerHTML = `
+    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
+      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
+        評価レポート
+      </h1>
+      <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #3b82f6;">
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価対象者:</strong> ${data.evaluatee}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>部署:</strong> ${data.department}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.period}</p>
+      </div>
+      <h2 style="font-size: 20px; margin: 25px 0 15px; color: #1e40af; border-left: 4px solid #22c55e; padding-left: 12px;">
+        サマリー
+      </h2>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+          <tr style="background: #22c55e; color: white;">
+            <th style="padding: 10px; border: 1px solid #ddd;">評価段階</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">総合スコア</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">ステータス</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">提出日</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.evaluations.map((e, i) => `
+            <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
+              <td style="padding: 10px; border: 1px solid #ddd;">${e.stage}</td>
+              <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${e.totalScore.toFixed(1)}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${e.submittedAt}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+
+  // 表紙を追加
+  await addPageFromHTML(doc, headerHTML, false)
+
+  // 各評価ごとに1ページずつ追加
+  for (const evaluation of data.evaluations) {
     const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
       <div style="margin-top: 5px;">
         <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
@@ -82,8 +124,8 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
       </div>
     ` : ''
 
-    return `
-      <div style="page-break-before: ${index > 0 ? 'always' : 'auto'}; page-break-after: always;">
+    const evaluationHTML = `
+      <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
         <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
           <h3 style="margin: 0; font-size: 16px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
         </div>
@@ -95,57 +137,10 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
         ${overallCommentHTML}
       </div>
     `
-  }).join('')
 
-  const summaryHTML = `
-    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-      <thead>
-        <tr style="background: #22c55e; color: white;">
-          <th style="padding: 10px; border: 1px solid #ddd;">評価段階</th>
-          <th style="padding: 10px; border: 1px solid #ddd;">総合スコア</th>
-          <th style="padding: 10px; border: 1px solid #ddd;">ステータス</th>
-          <th style="padding: 10px; border: 1px solid #ddd;">提出日</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.evaluations.map((e, i) => `
-          <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-            <td style="padding: 10px; border: 1px solid #ddd;">${e.stage}</td>
-            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${e.totalScore.toFixed(1)}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${e.submittedAt}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `
-
-  const htmlContent = `
-    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
-      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
-        評価レポート
-      </h1>
-
-      <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #3b82f6;">
-        <p style="margin: 8px 0; font-size: 15px;"><strong>評価対象者:</strong> ${data.evaluatee}</p>
-        <p style="margin: 8px 0; font-size: 15px;"><strong>部署:</strong> ${data.department}</p>
-        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.period}</p>
-      </div>
-
-      <h2 style="font-size: 20px; margin: 25px 0 15px; color: #1e40af; border-left: 4px solid #3b82f6; padding-left: 12px;">
-        評価詳細
-      </h2>
-      ${evaluationsHTML}
-
-      <h2 style="font-size: 20px; margin: 30px 0 15px; color: #1e40af; border-left: 4px solid #22c55e; padding-left: 12px;">
-        サマリー
-      </h2>
-      ${summaryHTML}
-    </div>
-  `
-
-  // HTMLからPDFを生成
-  const doc = await createPDFFromHTML(htmlContent)
+    // 各評価を新しいページとして追加
+    await addPageFromHTML(doc, evaluationHTML, true)
+  }
 
   // ファイル名を生成
   const fileName = `evaluation_${data.evaluatee.replace(/\s+/g, '_')}_${Date.now()}.pdf`
@@ -248,8 +243,62 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
   doc.save(fileName)
 }
 
+// HTMLをcanvasに変換してPDFに1ページとして追加
+async function addPageFromHTML(doc: jsPDF, htmlContent: string, addNewPage: boolean) {
+  // フォントロード完了を待つ
+  await (document as any).fonts?.ready
+
+  const widthPx = 800
+  const tempDiv = document.createElement('div')
+  tempDiv.id = 'pdf-temp-root-' + Math.random().toString(36).substr(2, 9)
+  tempDiv.innerHTML = htmlContent
+  tempDiv.style.position = 'absolute'
+  tempDiv.style.left = '-9999px'
+  tempDiv.style.width = `${widthPx}px`
+  tempDiv.style.backgroundColor = '#ffffff'
+  tempDiv.style.fontFamily = '"Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif'
+  tempDiv.style.lineHeight = '1.35'
+  tempDiv.style.fontSize = '12px'
+  tempDiv.className = 'pdf-root'
+  document.body.appendChild(tempDiv)
+
+  try {
+    const canvas = await html2canvas(tempDiv, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+      allowTaint: true,
+      foreignObjectRendering: false,
+      imageTimeout: 0,
+      width: widthPx,
+      windowWidth: widthPx,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        const el = clonedDoc.body.querySelector(`#${tempDiv.id}`) as HTMLElement | null
+        if (el) {
+          el.style.width = `${widthPx}px`
+          el.style.overflow = 'visible'
+          el.classList.add('pdf-root')
+        }
+      }
+    })
+
+    // 新しいページを追加
+    if (addNewPage) {
+      doc.addPage()
+    }
+
+    // canvasをページごとにスライスして追加
+    addCanvasToPdfBySlicing(doc, canvas, false)
+  } finally {
+    document.body.removeChild(tempDiv)
+  }
+}
+
 // canvasをページごとにスライスしてPDFに追加（行の途中で切れるのを防止）
-function addCanvasToPdfBySlicing(doc: jsPDF, canvas: HTMLCanvasElement) {
+function addCanvasToPdfBySlicing(doc: jsPDF, canvas: HTMLCanvasElement, addPageBefore: boolean = true) {
   const marginMm = 10
   const pageWidthMm = 210
   const pageHeightMm = 297
@@ -275,7 +324,7 @@ function addCanvasToPdfBySlicing(doc: jsPDF, canvas: HTMLCanvasElement) {
 
     const imgData = slice.toDataURL('image/png')
 
-    if (pageIndex > 0) doc.addPage()
+    if (pageIndex > 0 && addPageBefore) doc.addPage()
 
     const sliceHeightMm = sliceHeight * mmPerPx
     doc.addImage(imgData, 'PNG', marginMm, marginMm, contentWidthMm, sliceHeightMm)
