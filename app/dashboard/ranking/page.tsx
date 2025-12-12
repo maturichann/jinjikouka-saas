@@ -47,6 +47,8 @@ export default function RankingPage() {
     let isActive = true
 
     async function fetchPeriods() {
+      if (!supabase) return
+
       const { data, error } = await supabase
         .from('evaluation_periods')
         .select('*')
@@ -82,6 +84,8 @@ export default function RankingPage() {
     let isActive = true
 
     async function fetchRankings() {
+      if (!supabase) return
+
       if (!selectedPeriod) {
         setRankings([])
         return
