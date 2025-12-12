@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,7 +26,11 @@ export default function RankingPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("")
   const [rankings, setRankings] = useState<RankingEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
 
   // 管理者チェック
   useEffect(() => {
@@ -37,38 +41,68 @@ export default function RankingPage() {
 
   // 評価期間リストを取得
   useEffect(() => {
+    const supabase = supabaseRef.current
+    if (!supabase || !user || user.role !== 'admin') return
+
+    let isActive = true
+
     async function fetchPeriods() {
       const { data, error } = await supabase
         .from('evaluation_periods')
         .select('*')
         .order('start_date', { ascending: false })
 
-      if (!error && data) {
+      if (!isActive) return
+
+      if (error) {
+        console.error('評価期間取得エラー:', error)
+        setPeriods([])
+        setSelectedPeriod('')
+        return
+      }
+
+      if (data) {
         setPeriods(data)
-        if (data.length > 0) {
-          setSelectedPeriod(data[0].id)
-        }
+        setSelectedPeriod((prev) => (prev ? prev : data[0]?.id ?? ''))
       }
     }
 
-    if (user) {
-      fetchPeriods()
+    fetchPeriods()
+
+    return () => {
+      isActive = false
     }
-  }, [user, supabase])
+  }, [user])
 
   // ランキングデータを取得
   useEffect(() => {
+    const supabase = supabaseRef.current
+    if (!supabase || !user || user.role !== 'admin') return
+
+    let isActive = true
+
     async function fetchRankings() {
-      if (!selectedPeriod) return
+      if (!selectedPeriod) {
+        setRankings([])
+        return
+      }
 
       setIsLoading(true)
       try {
         // 現在の期間の情報を取得
-        const { data: currentPeriod } = await supabase
+        const { data: currentPeriod, error: currentPeriodError } = await supabase
           .from('evaluation_periods')
           .select('*')
           .eq('id', selectedPeriod)
           .single()
+
+        if (!isActive) return
+
+        if (currentPeriodError) {
+          console.error('評価期間取得エラー:', currentPeriodError)
+          setRankings([])
+          return
+        }
 
         // 最終評価のデータを取得
         const { data: evaluations, error } = await supabase
@@ -80,6 +114,8 @@ export default function RankingPage() {
           .eq('period_id', selectedPeriod)
           .eq('stage', 'final')
           .eq('status', 'submitted')
+
+        if (!isActive) return
 
         if (error) throw error
 
@@ -99,6 +135,8 @@ export default function RankingPage() {
             previousPeriodId = previousPeriods[0].id
           }
         }
+
+        if (!isActive) return
 
         // スコアで計算してランキング作成
         const rankingData: RankingEntry[] = await Promise.all(
@@ -148,6 +186,8 @@ export default function RankingPage() {
           })
         )
 
+        if (!isActive) return
+
         // スコアでソートしてランクを付与
         const sorted = rankingData.sort((a, b) => b.totalScore - a.totalScore)
         sorted.forEach((entry, index) => {
@@ -157,13 +197,20 @@ export default function RankingPage() {
         setRankings(sorted)
       } catch (error) {
         console.error('ランキング取得エラー:', error)
+        setRankings([])
       } finally {
-        setIsLoading(false)
+        if (isActive) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchRankings()
-  }, [selectedPeriod, supabase])
+
+    return () => {
+      isActive = false
+    }
+  }, [selectedPeriod, user])
 
   const handleExportPDF = async () => {
     if (rankings.length === 0) return
@@ -171,18 +218,22 @@ export default function RankingPage() {
     const period = periods.find(p => p.id === selectedPeriod)
     if (!period) return
 
-    await generateRankingPDF({
-      periodName: period.name,
-      periodDates: `${period.start_date} 〜 ${period.end_date}`,
-      rankings: rankings.map(r => ({
-        rank: r.rank,
-        name: r.evaluatee_name,
-        department: r.department,
-        totalScore: r.totalScore,
-        previousScore: r.previousScore,
-        scoreChange: r.scoreChange
-      }))
-    })
+    try {
+      await generateRankingPDF({
+        periodName: period.name,
+        periodDates: `${period.start_date} 〜 ${period.end_date}`,
+        rankings: rankings.map(r => ({
+          rank: r.rank,
+          name: r.evaluatee_name,
+          department: r.department,
+          totalScore: r.totalScore,
+          previousScore: r.previousScore,
+          scoreChange: r.scoreChange
+        }))
+      })
+    } catch (error) {
+      console.error('PDF出力エラー:', error)
+    }
   }
 
   const getScoreChangeIcon = (scoreChange?: number) => {
