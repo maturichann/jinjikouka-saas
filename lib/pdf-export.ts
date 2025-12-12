@@ -30,36 +30,36 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
     const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
       <div style="margin-top: 5px;">
         <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
+        <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
           <thead>
             <tr style="background: #e0e7ff; color: #1e40af;">
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">項目名</th>
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">説明</th>
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%;">重み</th>
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">グレード</th>
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">スコア</th>
-              <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 45%;">コメント</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px;">項目名</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px;">説明</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%; min-width: 30px; white-space: nowrap;">重み</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">グレード</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">スコア</th>
+              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px;">コメント</th>
             </tr>
           </thead>
           <tbody>
             ${evaluation.items.map((item, i) => `
               <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 7px;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 7px; word-break: break-word; overflow-wrap: break-word;">
                   ${item.name}
                 </td>
-                <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 6px;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
                   ${item.description}
                 </td>
-                <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px; white-space: nowrap;">
                   ${item.weight}
                 </td>
-                <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">
                   ${item.grade || '-'}
                 </td>
-                <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">
                   ${item.score}
                 </td>
-                <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 6px;">
+                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
                   ${item.comment || '-'}
                 </td>
               </tr>
@@ -156,36 +156,36 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
       const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
         <div style="margin-top: 5px;">
           <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
             <thead>
               <tr style="background: #e0e7ff; color: #1e40af;">
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">項目名</th>
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%;">説明</th>
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%;">重み</th>
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">グレード</th>
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; width: 7%;">スコア</th>
-                <th style="padding: 2px; border: 1px solid #cbd5e1; text-align: left; width: 45%;">コメント</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px;">項目名</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px;">説明</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%; min-width: 30px; white-space: nowrap;">重み</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">グレード</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">スコア</th>
+                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px;">コメント</th>
               </tr>
             </thead>
             <tbody>
               ${evaluation.items.map((item, i) => `
                 <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 7px;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 7px; word-break: break-word; overflow-wrap: break-word;">
                     ${item.name}
                   </td>
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 6px;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
                     ${item.description}
                   </td>
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px; white-space: nowrap;">
                     ${item.weight}
                   </td>
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">
                     ${item.grade || '-'}
                   </td>
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">
                     ${item.score}
                   </td>
-                  <td style="padding: 2px; border: 1px solid #cbd5e1; font-size: 6px;">
+                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
                     ${item.comment || '-'}
                   </td>
                 </tr>
@@ -252,10 +252,13 @@ async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
   try {
     // HTMLをcanvasに変換
     const canvas = await html2canvas(tempDiv, {
-      scale: 2,
+      scale: 3,
       backgroundColor: '#ffffff',
       logging: false,
-      useCORS: true
+      useCORS: true,
+      allowTaint: true,
+      foreignObjectRendering: false,
+      imageTimeout: 0
     })
 
     // canvasを画像に変換してPDFに追加
@@ -344,14 +347,14 @@ export async function generateRankingPDF(data: RankingPDFData) {
         <p style="margin: 8px 0; font-size: 15px;"><strong>対象者数:</strong> ${data.rankings.length}名</p>
       </div>
 
-      <table style="width: 100%; border-collapse: collapse;">
+      <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
         <thead>
           <tr style="background: #2563eb; color: white;">
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">順位</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">氏名</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">部署</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">総合スコア</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">前年比</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 10%; min-width: 60px;">順位</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 25%; min-width: 120px;">氏名</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 25%; min-width: 120px;">部署</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: right; width: 20%; min-width: 100px;">総合スコア</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 20%; min-width: 100px;">前年比</th>
           </tr>
         </thead>
         <tbody>
