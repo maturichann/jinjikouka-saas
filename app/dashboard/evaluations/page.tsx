@@ -558,9 +558,13 @@ export default function EvaluationsPage() {
                       className="space-y-3"
                     >
                       {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
-                        <div key={grade} className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
-                          <Label htmlFor={`${item.id}-${grade}`} className="flex-1 cursor-pointer">
+                        <div
+                          key={grade}
+                          className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
+                          onClick={() => handleGradeChange(item.id, grade)}
+                        >
+                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1 pointer-events-none" />
+                          <Label htmlFor={`${item.id}-${grade}`} className="flex-1 cursor-pointer pointer-events-none">
                             <div className="font-semibold text-base">
                               {grade}評価 - {item.grade_scores?.[grade] || 0}点
                             </div>
