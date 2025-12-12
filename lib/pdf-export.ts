@@ -30,36 +30,42 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
     const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
       <div style="margin-top: 5px;">
         <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
-        <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
+        <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.35;">
           <thead>
             <tr style="background: #e0e7ff; color: #1e40af;">
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px;">項目名</th>
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px;">説明</th>
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%; min-width: 30px; white-space: nowrap;">重み</th>
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">グレード</th>
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">スコア</th>
-              <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px;">コメント</th>
+              <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px; box-sizing: border-box; vertical-align: top;">項目名</th>
+              <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px; box-sizing: border-box; vertical-align: top;">説明</th>
+              <th style="padding: 0; border: 1px solid #cbd5e1; width: 6%; min-width: 30px; box-sizing: border-box; vertical-align: top;">
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">重み</div>
+              </th>
+              <th style="padding: 0; border: 1px solid #cbd5e1; width: 8%; min-width: 45px; box-sizing: border-box; vertical-align: top;">
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">グレード</div>
+              </th>
+              <th style="padding: 0; border: 1px solid #cbd5e1; width: 8%; min-width: 45px; box-sizing: border-box; vertical-align: top;">
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">スコア</div>
+              </th>
+              <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px; box-sizing: border-box; vertical-align: top;">コメント</th>
             </tr>
           </thead>
           <tbody>
             ${evaluation.items.map((item, i) => `
               <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 7px; word-break: break-word; overflow-wrap: break-word;">
+                <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 7px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                   ${item.name}
                 </td>
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
+                <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 6px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                   ${item.description}
                 </td>
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px; white-space: nowrap;">
-                  ${item.weight}
+                <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-size: 7px; white-space: nowrap;">${item.weight}</div>
                 </td>
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">
-                  ${item.grade || '-'}
+                <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">${item.grade || '-'}</div>
                 </td>
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">
-                  ${item.score}
+                <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">${item.score}</div>
                 </td>
-                <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
+                <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 6px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                   ${item.comment || '-'}
                 </td>
               </tr>
@@ -156,36 +162,42 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
       const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
         <div style="margin-top: 5px;">
           <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
-          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.2;">
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3px; font-size: 7px; line-height: 1.35;">
             <thead>
               <tr style="background: #e0e7ff; color: #1e40af;">
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px;">項目名</th>
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px;">説明</th>
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 6%; min-width: 30px; white-space: nowrap;">重み</th>
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">グレード</th>
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; width: 8%; min-width: 45px; white-space: nowrap;">スコア</th>
-                <th style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px;">コメント</th>
+                <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 15%; min-width: 80px; box-sizing: border-box; vertical-align: top;">項目名</th>
+                <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 20%; min-width: 100px; box-sizing: border-box; vertical-align: top;">説明</th>
+                <th style="padding: 0; border: 1px solid #cbd5e1; width: 6%; min-width: 30px; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">重み</div>
+                </th>
+                <th style="padding: 0; border: 1px solid #cbd5e1; width: 8%; min-width: 45px; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">グレード</div>
+                </th>
+                <th style="padding: 0; border: 1px solid #cbd5e1; width: 8%; min-width: 45px; box-sizing: border-box; vertical-align: top;">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; white-space: nowrap;">スコア</div>
+                </th>
+                <th style="padding: 4px 3px; border: 1px solid #cbd5e1; text-align: left; width: 43%; min-width: 200px; box-sizing: border-box; vertical-align: top;">コメント</th>
               </tr>
             </thead>
             <tbody>
               ${evaluation.items.map((item, i) => `
                 <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 7px; word-break: break-word; overflow-wrap: break-word;">
+                  <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 7px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                     ${item.name}
                   </td>
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
+                  <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 6px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                     ${item.description}
                   </td>
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-size: 7px; white-space: nowrap;">
-                    ${item.weight}
+                  <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-size: 7px; white-space: nowrap;">${item.weight}</div>
                   </td>
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">
-                    ${item.grade || '-'}
+                  <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-weight: bold; font-size: 8px; color: #374151; white-space: nowrap;">${item.grade || '-'}</div>
                   </td>
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">
-                    ${item.score}
+                  <td style="padding: 0; border: 1px solid #cbd5e1; box-sizing: border-box; vertical-align: top;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px 3px; box-sizing: border-box; font-weight: bold; font-size: 9px; color: #3b82f6; white-space: nowrap;">${item.score}</div>
                   </td>
-                  <td style="padding: 3px 2px; border: 1px solid #cbd5e1; font-size: 6px; word-break: break-word; overflow-wrap: break-word;">
+                  <td style="padding: 4px 3px; border: 1px solid #cbd5e1; font-size: 6px; box-sizing: border-box; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; line-break: strict;">
                     ${item.comment || '-'}
                   </td>
                 </tr>
@@ -236,50 +248,91 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
   doc.save(fileName)
 }
 
+// canvasをページごとにスライスしてPDFに追加（行の途中で切れるのを防止）
+function addCanvasToPdfBySlicing(doc: jsPDF, canvas: HTMLCanvasElement) {
+  const marginMm = 10
+  const pageWidthMm = 210
+  const pageHeightMm = 297
+  const contentWidthMm = pageWidthMm - marginMm * 2
+  const contentHeightMm = pageHeightMm - marginMm * 2
+
+  // px→mm換算（貼り付け幅に合わせてスケール）
+  const mmPerPx = contentWidthMm / canvas.width
+  const pageHeightPx = Math.floor(contentHeightMm / mmPerPx)
+
+  let y = 0
+  let pageIndex = 0
+
+  while (y < canvas.height) {
+    const sliceHeight = Math.min(pageHeightPx, canvas.height - y)
+
+    const slice = document.createElement('canvas')
+    slice.width = canvas.width
+    slice.height = sliceHeight
+    const ctx = slice.getContext('2d')!
+    ctx.drawImage(canvas, 0, y, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight)
+
+    const imgData = slice.toDataURL('image/png')
+
+    if (pageIndex > 0) doc.addPage()
+
+    const sliceHeightMm = sliceHeight * mmPerPx
+    doc.addImage(imgData, 'PNG', marginMm, marginMm, contentWidthMm, sliceHeightMm)
+
+    y += sliceHeight
+    pageIndex++
+  }
+}
+
 // HTMLからPDF生成するヘルパー関数
 async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
   const doc = new jsPDF('p', 'mm', 'a4')
 
+  // フォントロード完了を待つ（日本語フォント対応）
+  await (document as any).fonts?.ready
+
   // 一時的なDIV要素を作成
+  const widthPx = 800
   const tempDiv = document.createElement('div')
+  tempDiv.id = 'pdf-temp-root'
   tempDiv.innerHTML = htmlContent
   tempDiv.style.position = 'absolute'
   tempDiv.style.left = '-9999px'
-  tempDiv.style.width = '800px'
+  tempDiv.style.width = `${widthPx}px`
   tempDiv.style.backgroundColor = '#ffffff'
+  tempDiv.style.fontFamily = '"Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif'
+  tempDiv.style.lineHeight = '1.35'
+  tempDiv.style.fontSize = '12px'
+  tempDiv.className = 'pdf-root'
   document.body.appendChild(tempDiv)
 
   try {
     // HTMLをcanvasに変換
     const canvas = await html2canvas(tempDiv, {
-      scale: 3,
+      scale: 2,
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
       allowTaint: true,
       foreignObjectRendering: false,
-      imageTimeout: 0
+      imageTimeout: 0,
+      width: widthPx,
+      windowWidth: widthPx,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        // クローン側にPDF専用のスタイルを強制
+        const el = clonedDoc.body.querySelector('#pdf-temp-root') as HTMLElement | null
+        if (el) {
+          el.style.width = `${widthPx}px`
+          el.style.overflow = 'visible'
+          el.classList.add('pdf-root')
+        }
+      }
     })
 
-    // canvasを画像に変換してPDFに追加
-    const imgData = canvas.toDataURL('image/png')
-    const imgWidth = 190 // A4サイズに合わせる (210mm - 20mm margin)
-    const pageHeight = 277 // A4サイズの高さ (297mm - 20mm margin)
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-    let heightLeft = imgHeight
-    let position = 10
-
-    // 最初のページに画像を追加
-    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-
-    // 必要に応じて追加ページを作成
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight + 10
-      doc.addPage()
-      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
-    }
+    // canvasをページごとにスライスして追加（見切れ防止）
+    addCanvasToPdfBySlicing(doc, canvas)
   } finally {
     // 一時DIVを削除
     document.body.removeChild(tempDiv)
