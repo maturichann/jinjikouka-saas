@@ -258,7 +258,8 @@ function addCanvasToPdfBySlicing(doc: jsPDF, canvas: HTMLCanvasElement) {
 
   // px→mm換算（貼り付け幅に合わせてスケール）
   const mmPerPx = contentWidthMm / canvas.width
-  const pageHeightPx = Math.floor(contentHeightMm / mmPerPx)
+  // ページ高さに5%の余裕を持たせて、テーブル行が途中で切れないようにする
+  const pageHeightPx = Math.floor(contentHeightMm / mmPerPx * 0.95)
 
   let y = 0
   let pageIndex = 0
