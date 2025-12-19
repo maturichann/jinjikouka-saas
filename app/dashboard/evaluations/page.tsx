@@ -30,6 +30,7 @@ type EvaluationItem = {
   grade?: string
   grade_scores?: { A: number; B: number; C: number; D: number; E: number }
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
+  hide_criteria_from_self?: boolean
 }
 
 type Evaluation = {
@@ -250,7 +251,8 @@ export default function EvaluationsPage() {
           comment: existingScore?.comment || '',
           grade: existingScore?.grade || '',
           grade_scores: item.grade_scores || { A: 5, B: 4, C: 3, D: 2, E: 1 },
-          grade_criteria: item.grade_criteria || { A: '', B: '', C: '', D: '', E: '' }
+          grade_criteria: item.grade_criteria || { A: '', B: '', C: '', D: '', E: '' },
+          hide_criteria_from_self: item.hide_criteria_from_self || false
         }
       })
 
@@ -568,7 +570,8 @@ export default function EvaluationsPage() {
                             <div className="font-semibold text-base">
                               {grade}評価 - {item.grade_scores?.[grade] || 0}点
                             </div>
-                            {item.grade_criteria?.[grade] && (
+                            {/* 本人評価時にhide_criteria_from_selfがtrueの場合は評価基準を非表示 */}
+                            {item.grade_criteria?.[grade] && !(currentEvaluation?.stage === 'self' && item.hide_criteria_from_self) && (
                               <div className="text-sm text-gray-600 mt-1">
                                 {item.grade_criteria[grade]}
                               </div>

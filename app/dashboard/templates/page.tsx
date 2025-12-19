@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type EvaluationItem = {
   id: string
@@ -33,6 +34,7 @@ type EvaluationItem = {
   category?: string
   grade_scores?: { A: number; B: number; C: number; D: number; E: number }
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
+  hide_criteria_from_self?: boolean
 }
 
 type Template = {
@@ -59,7 +61,8 @@ export default function TemplatesPage() {
     criteria: "",
     category: "",
     grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
-    grade_criteria: { A: "", B: "", C: "", D: "", E: "" }
+    grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
+    hide_criteria_from_self: false
   })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
@@ -156,7 +159,8 @@ export default function TemplatesPage() {
           category: newItem.category || null,
           grade_scores: newItem.grade_scores,
           grade_criteria: newItem.grade_criteria,
-          order_index: currentItemsCount
+          order_index: currentItemsCount,
+          hide_criteria_from_self: newItem.hide_criteria_from_self
         }])
         .select()
 
@@ -169,7 +173,8 @@ export default function TemplatesPage() {
         criteria: "",
         category: "",
         grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
-        grade_criteria: { A: "", B: "", C: "", D: "", E: "" }
+        grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
+        hide_criteria_from_self: false
       })
       setIsItemDialogOpen(false)
       fetchTemplates()
@@ -217,7 +222,8 @@ export default function TemplatesPage() {
           criteria: editingItem.criteria,
           category: editingItem.category || null,
           grade_scores: editingItem.grade_scores,
-          grade_criteria: editingItem.grade_criteria
+          grade_criteria: editingItem.grade_criteria,
+          hide_criteria_from_self: editingItem.hide_criteria_from_self
         })
         .eq('id', editingItem.id)
 
@@ -515,6 +521,19 @@ export default function TemplatesPage() {
                           各グレード(A〜E)の点数と評価基準を設定してください
                         </p>
                       </div>
+                      <div className="flex items-center space-x-2 p-4 border rounded-lg bg-yellow-50 border-yellow-200">
+                        <Checkbox
+                          id="hide-criteria-self"
+                          checked={newItem.hide_criteria_from_self}
+                          onCheckedChange={(checked) => setNewItem({ ...newItem, hide_criteria_from_self: checked as boolean })}
+                        />
+                        <Label
+                          htmlFor="hide-criteria-self"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          本人評価時に評価基準を非表示にする
+                        </Label>
+                      </div>
                       <Button onClick={handleAddItem} className="w-full">追加</Button>
                     </div>
                   </DialogContent>
@@ -527,6 +546,7 @@ export default function TemplatesPage() {
                     <TableHead>項目名</TableHead>
                     <TableHead>説明</TableHead>
                     <TableHead>グレード配点</TableHead>
+                    <TableHead>本人に非表示</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -564,6 +584,15 @@ export default function TemplatesPage() {
                                 ) : '未設定'}
                               </div>
                             </TableCell>
+                            <TableCell className="text-center">
+                              {item.hide_criteria_from_self ? (
+                                <span className="inline-block px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded">
+                                  非表示
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
                                 <Button
@@ -593,7 +622,7 @@ export default function TemplatesPage() {
                   })()}
                   {template.items.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500">
+                      <TableCell colSpan={7} className="text-center text-gray-500">
                         評価項目が登録されていません
                       </TableCell>
                     </TableRow>
@@ -721,6 +750,19 @@ export default function TemplatesPage() {
                 <p className="text-xs text-gray-500 mt-2">
                   各グレード(A〜E)の点数と評価基準を設定してください
                 </p>
+              </div>
+              <div className="flex items-center space-x-2 p-4 border rounded-lg bg-yellow-50 border-yellow-200">
+                <Checkbox
+                  id="edit-hide-criteria-self"
+                  checked={editingItem?.hide_criteria_from_self || false}
+                  onCheckedChange={(checked) => editingItem && setEditingItem({ ...editingItem, hide_criteria_from_self: checked as boolean })}
+                />
+                <Label
+                  htmlFor="edit-hide-criteria-self"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  本人評価時に評価基準を非表示にする
+                </Label>
               </div>
               <Button onClick={handleEditItem} className="w-full">更新</Button>
             </div>
