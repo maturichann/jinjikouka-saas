@@ -37,7 +37,7 @@ type Period = {
   period_summary?: string
 }
 
-type UserRank = 'S' | 'J' | null
+type UserRank = 'S' | 'J' | 'M' | null
 type UserStatus = 'active' | 'on_leave' | 'retired'
 
 type UserForAssignment = {
@@ -629,6 +629,7 @@ export default function PeriodsPage() {
                   <option value="">全てのランク</option>
                   <option value="S">Sランク</option>
                   <option value="J">Jランク</option>
+                  <option value="M">Mランク</option>
                 </select>
               </div>
             </div>

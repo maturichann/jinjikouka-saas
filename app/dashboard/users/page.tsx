@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 
 type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
-type UserRank = 'S' | 'J' | null
+type UserRank = 'S' | 'J' | 'M' | null
 type UserStatus = 'active' | 'on_leave' | 'retired'
 
 type User = {
@@ -107,7 +107,8 @@ export default function UsersPage() {
     if (!rank) return <span className="text-gray-400">-</span>
     const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
       S: { variant: "default", label: "Sランク" },
-      J: { variant: "secondary", label: "Jランク" }
+      J: { variant: "secondary", label: "Jランク" },
+      M: { variant: "outline", label: "Mランク" }
     }
     const config = variants[rank]
     return <Badge variant={config.variant}>{config.label}</Badge>
@@ -343,6 +344,7 @@ export default function UsersPage() {
                   <option value="">未設定</option>
                   <option value="S">Sランク</option>
                   <option value="J">Jランク</option>
+                  <option value="M">Mランク</option>
                 </select>
               </div>
 
@@ -514,6 +516,7 @@ export default function UsersPage() {
                 <option value="">未設定</option>
                 <option value="S">Sランク</option>
                 <option value="J">Jランク</option>
+                <option value="M">Mランク</option>
               </select>
             </div>
             <div>

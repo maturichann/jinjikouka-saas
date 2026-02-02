@@ -115,9 +115,9 @@ export function canManageTemplates(role: UserRole): boolean {
   return role === 'admin'
 }
 
-// 評価期間を管理できるか（管理者のみ）
+// 評価期間を管理できるか（管理者と店長）
 export function canManagePeriods(role: UserRole): boolean {
-  return role === 'admin'
+  return role === 'admin' || role === 'manager'
 }
 
 // ユーザー管理ができるか（管理者のみ）
