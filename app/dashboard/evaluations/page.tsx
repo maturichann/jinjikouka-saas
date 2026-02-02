@@ -75,15 +75,37 @@ export default function EvaluationsPage() {
         if (error) throw error
         evaluationsData = data || []
       } else if (user.role === 'mg') {
-        // MGはMG評価のみ実施可能
-        const { data, error } = await supabase
-          .from('evaluations')
-          .select('*')
-          .eq('stage', 'mg')
-          .in('status', ['pending', 'in_progress'])
+        // MGは管轄店舗スタッフのMG評価のみ実施可能
+        const managedDepts = user.managed_departments || []
 
-        if (error) throw error
-        evaluationsData = data || []
+        if (managedDepts.length === 0) {
+          // 管轄店舗が設定されていない場合は何も表示しない
+          evaluationsData = []
+        } else {
+          // 管轄店舗のスタッフIDを取得
+          const { data: deptUsers, error: deptError } = await supabase
+            .from('users')
+            .select('id')
+            .in('department', managedDepts)
+
+          if (deptError) throw deptError
+
+          const deptUserIds = (deptUsers || []).map(u => u.id)
+
+          if (deptUserIds.length > 0) {
+            const { data, error } = await supabase
+              .from('evaluations')
+              .select('*')
+              .eq('stage', 'mg')
+              .in('evaluatee_id', deptUserIds)
+              .in('status', ['pending', 'in_progress'])
+
+            if (error) throw error
+            evaluationsData = data || []
+          } else {
+            evaluationsData = []
+          }
+        }
       } else if (user.role === 'manager') {
         // 店長は自店舗スタッフの店長評価と自分の本人評価のみ実施可能
         const { data: selfEvals, error: selfError } = await supabase

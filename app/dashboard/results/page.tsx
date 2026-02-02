@@ -80,8 +80,8 @@ export default function ResultsPage() {
       // 権限に応じた評価データを取得
       let evaluationsData = []
 
-      if (user.role === 'admin' || user.role === 'mg') {
-        // 管理者とMGは全ての評価を閲覧可能
+      if (user.role === 'admin') {
+        // 管理者は全ての評価を閲覧可能
         const { data, error } = await supabase
           .from('evaluations')
           .select('*')
@@ -89,6 +89,35 @@ export default function ResultsPage() {
 
         if (error) throw error
         evaluationsData = data || []
+      } else if (user.role === 'mg') {
+        // MGは管轄店舗の評価のみ閲覧可能
+        const managedDepts = user.managed_departments || []
+
+        if (managedDepts.length === 0) {
+          evaluationsData = []
+        } else {
+          const { data: deptUsers, error: deptError } = await supabase
+            .from('users')
+            .select('id')
+            .in('department', managedDepts)
+
+          if (deptError) throw deptError
+
+          const deptUserIds = (deptUsers || []).map(u => u.id)
+
+          if (deptUserIds.length > 0) {
+            const { data, error } = await supabase
+              .from('evaluations')
+              .select('*')
+              .in('evaluatee_id', deptUserIds)
+              .order('created_at', { ascending: false })
+
+            if (error) throw error
+            evaluationsData = data || []
+          } else {
+            evaluationsData = []
+          }
+        }
       } else if (user.role === 'manager') {
         // 店長は自部署の評価のみ閲覧可能
         // まず自部署のユーザーIDを取得

@@ -11,6 +11,7 @@ export type User = {
   name: string
   role: UserRole
   department: string
+  managed_departments: string[]
 }
 
 type AuthContextType = {
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Supabaseからユーザーを検索（スタッフコードで）
       const { data, error } = await supabase
         .from('users')
-        .select('id, staff_code, name, role, department, password_hash')
+        .select('id, staff_code, name, role, department, password_hash, managed_departments')
         .eq('staff_code', staffCode)
         .single()
 
@@ -66,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         staff_code: data.staff_code,
         name: data.name,
         role: data.role as UserRole,
-        department: data.department
+        department: data.department,
+        managed_departments: data.managed_departments || []
       }
 
       setUser(userData)

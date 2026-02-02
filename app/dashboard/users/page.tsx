@@ -39,6 +39,7 @@ type User = {
   created_at: string
   rank: UserRank
   status: UserStatus
+  managed_departments: string[]
 }
 
 export default function UsersPage() {
@@ -55,8 +56,10 @@ export default function UsersPage() {
     role: "staff" as UserRole,
     department: "",
     rank: null as UserRank,
-    status: "active" as UserStatus
+    status: "active" as UserStatus,
+    managed_departments: [] as string[]
   })
+  const [allDepartments, setAllDepartments] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("active")
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
@@ -79,7 +82,15 @@ export default function UsersPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setUsers(data || [])
+      const usersData = (data || []).map(u => ({
+        ...u,
+        managed_departments: u.managed_departments || []
+      }))
+      setUsers(usersData)
+
+      // 店舗一覧を抽出（重複を除去してソート）
+      const departments = [...new Set(usersData.map(u => u.department).filter(Boolean))].sort()
+      setAllDepartments(departments)
     } catch (error) {
       console.error('ユーザーの取得エラー:', error)
       alert('ユーザーの取得に失敗しました')
@@ -146,14 +157,15 @@ export default function UsersPage() {
           department: newUser.department,
           password_hash: password,
           rank: newUser.rank,
-          status: newUser.status
+          status: newUser.status,
+          managed_departments: newUser.role === 'mg' ? newUser.managed_departments : []
         }])
         .select()
 
       if (error) throw error
 
       setGeneratedPassword(password)
-      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null, status: "active" })
+      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null, status: "active", managed_departments: [] })
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -176,7 +188,8 @@ export default function UsersPage() {
           role: editingUser.role,
           department: editingUser.department,
           rank: editingUser.rank,
-          status: editingUser.status
+          status: editingUser.status,
+          managed_departments: editingUser.role === 'mg' ? editingUser.managed_departments : []
         })
         .eq('id', editingUser.id)
 
@@ -348,6 +361,34 @@ export default function UsersPage() {
                 </select>
               </div>
 
+              {newUser.role === 'mg' && (
+                <div>
+                  <Label>管轄店舗</Label>
+                  <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                    {allDepartments.map(dept => (
+                      <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newUser.managed_departments.includes(dept)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewUser({ ...newUser, managed_departments: [...newUser.managed_departments, dept] })
+                            } else {
+                              setNewUser({ ...newUser, managed_departments: newUser.managed_departments.filter(d => d !== dept) })
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{dept}</span>
+                      </label>
+                    ))}
+                    {allDepartments.length === 0 && (
+                      <p className="text-sm text-gray-500">店舗が登録されていません</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {generatedPassword ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="font-semibold text-green-900 mb-2">ユーザーを作成しました！</p>
@@ -500,8 +541,8 @@ export default function UsersPage() {
                 onChange={(e) => editingUser && setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
               >
                 <option value="staff">スタッフ</option>
-                <option value="manager">店長</option>
-                <option value="mg">MG</option>
+                <option value="manager">店長評価者</option>
+                <option value="mg">MG評価者</option>
                 <option value="admin">管理者</option>
               </select>
             </div>
@@ -519,6 +560,34 @@ export default function UsersPage() {
                 <option value="M">Mランク</option>
               </select>
             </div>
+            {editingUser?.role === 'mg' && (
+              <div>
+                <Label>管轄店舗</Label>
+                <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                  {allDepartments.map(dept => (
+                    <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingUser?.managed_departments?.includes(dept) || false}
+                        onChange={(e) => {
+                          if (!editingUser) return
+                          if (e.target.checked) {
+                            setEditingUser({ ...editingUser, managed_departments: [...(editingUser.managed_departments || []), dept] })
+                          } else {
+                            setEditingUser({ ...editingUser, managed_departments: (editingUser.managed_departments || []).filter(d => d !== dept) })
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{dept}</span>
+                    </label>
+                  ))}
+                  {allDepartments.length === 0 && (
+                    <p className="text-sm text-gray-500">店舗が登録されていません</p>
+                  )}
+                </div>
+              </div>
+            )}
             <div>
               <Label htmlFor="edit-status">ステータス</Label>
               <select
