@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth, canManageUsers } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -269,12 +269,12 @@ export default function UsersPage() {
 
   if (!user) return null
 
-  if (user.role !== 'admin') {
+  if (!canManageUsers(user.role)) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">ユーザー管理</h1>
         <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-yellow-800">この機能は管理者のみがアクセスできます。</p>
+          <p className="text-yellow-800">この機能は管理者・MG評価者のみがアクセスできます。</p>
         </div>
       </div>
     )

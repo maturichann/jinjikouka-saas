@@ -112,19 +112,19 @@ export function canViewDepartmentEvaluations(role: UserRole): boolean {
   return role === 'admin' || role === 'mg' || role === 'manager'
 }
 
-// 評価項目やテンプレートを編集できるか（管理者のみ）
+// 評価項目やテンプレートを編集できるか（管理者・MG）
 export function canManageTemplates(role: UserRole): boolean {
-  return role === 'admin'
+  return role === 'admin' || role === 'mg'
 }
 
-// 評価期間を管理できるか（管理者と店長）
+// 評価期間を管理できるか（管理者・MG・店長）
 export function canManagePeriods(role: UserRole): boolean {
-  return role === 'admin' || role === 'manager'
+  return role === 'admin' || role === 'mg' || role === 'manager'
 }
 
-// ユーザー管理ができるか（管理者のみ）
+// ユーザー管理ができるか（管理者・MG）
 export function canManageUsers(role: UserRole): boolean {
-  return role === 'admin'
+  return role === 'admin' || role === 'mg'
 }
 
 // 他人を評価できるか（店長・MG・管理者）
