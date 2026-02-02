@@ -38,6 +38,7 @@ type Period = {
 }
 
 type UserRank = 'S' | 'J' | null
+type UserStatus = 'active' | 'on_leave' | 'retired'
 
 type UserForAssignment = {
   id: string
@@ -46,6 +47,7 @@ type UserForAssignment = {
   department: string
   role: string
   rank: UserRank
+  status: UserStatus
 }
 
 export default function PeriodsPage() {
@@ -101,7 +103,8 @@ export default function PeriodsPage() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, staff_code, department, role, rank')
+        .select('id, name, staff_code, department, role, rank, status')
+        .eq('status', 'active')  // 在籍中のユーザーのみ取得
         .order('name', { ascending: true })
 
       if (error) throw error

@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge"
 
 type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
 type UserRank = 'S' | 'J' | null
+type UserStatus = 'active' | 'on_leave' | 'retired'
 
 type User = {
   id: string
@@ -37,6 +38,7 @@ type User = {
   password_hash: string
   created_at: string
   rank: UserRank
+  status: UserStatus
 }
 
 export default function UsersPage() {
@@ -52,8 +54,10 @@ export default function UsersPage() {
     name: "",
     role: "staff" as UserRole,
     department: "",
-    rank: null as UserRank
+    rank: null as UserRank,
+    status: "active" as UserStatus
   })
+  const [statusFilter, setStatusFilter] = useState<string>("active")
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
   const [newPasswordInput, setNewPasswordInput] = useState("")
@@ -109,6 +113,21 @@ export default function UsersPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
+  const getStatusBadge = (status: UserStatus) => {
+    const variants: Record<UserStatus, { variant: "default" | "secondary" | "outline" | "destructive", label: string }> = {
+      active: { variant: "default", label: "在籍中" },
+      on_leave: { variant: "secondary", label: "休職中" },
+      retired: { variant: "outline", label: "退職" }
+    }
+    const config = variants[status] || variants.active
+    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
+
+  // ステータスでフィルタリングされたユーザー
+  const filteredUsers = statusFilter === "all"
+    ? users
+    : users.filter(u => u.status === statusFilter)
+
   const handleCreateUser = async () => {
     const supabase = supabaseRef.current
     if (!supabase) return
@@ -125,14 +144,15 @@ export default function UsersPage() {
           role: newUser.role,
           department: newUser.department,
           password_hash: password,
-          rank: newUser.rank
+          rank: newUser.rank,
+          status: newUser.status
         }])
         .select()
 
       if (error) throw error
 
       setGeneratedPassword(password)
-      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null })
+      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null, status: "active" })
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -154,7 +174,8 @@ export default function UsersPage() {
           name: editingUser.name,
           role: editingUser.role,
           department: editingUser.department,
-          rank: editingUser.rank
+          rank: editingUser.rank,
+          status: editingUser.status
         })
         .eq('id', editingUser.id)
 
@@ -346,8 +367,26 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>ユーザー一覧</CardTitle>
-          <CardDescription>登録されているユーザーの一覧（{users.length}人）</CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>ユーザー一覧</CardTitle>
+              <CardDescription>登録されているユーザーの一覧（表示: {filteredUsers.length}人 / 全体: {users.length}人）</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="status-filter" className="text-sm">表示:</Label>
+              <select
+                id="status-filter"
+                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="active">在籍中のみ</option>
+                <option value="on_leave">休職中のみ</option>
+                <option value="retired">退職者のみ</option>
+                <option value="all">全て表示</option>
+              </select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -358,25 +397,25 @@ export default function UsersPage() {
                 <TableHead>部署</TableHead>
                 <TableHead>役割</TableHead>
                 <TableHead>ランク</TableHead>
+                <TableHead>ステータス</TableHead>
                 <TableHead>パスワード</TableHead>
-                <TableHead>登録日</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
-                <TableRow key={u.id}>
+              {filteredUsers.map((u) => (
+                <TableRow key={u.id} className={u.status === 'retired' ? 'opacity-50' : ''}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.staff_code}</TableCell>
                   <TableCell>{u.department}</TableCell>
                   <TableCell>{getRoleBadge(u.role)}</TableCell>
                   <TableCell>{getRankBadge(u.rank)}</TableCell>
+                  <TableCell>{getStatusBadge(u.status)}</TableCell>
                   <TableCell>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded">
                       {u.password_hash}
                     </code>
                   </TableCell>
-                  <TableCell>{new Date(u.created_at).toLocaleDateString('ja-JP')}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -475,6 +514,19 @@ export default function UsersPage() {
                 <option value="">未設定</option>
                 <option value="S">Sランク</option>
                 <option value="J">Jランク</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="edit-status">ステータス</Label>
+              <select
+                id="edit-status"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={editingUser?.status || "active"}
+                onChange={(e) => editingUser && setEditingUser({ ...editingUser, status: e.target.value as UserStatus })}
+              >
+                <option value="active">在籍中</option>
+                <option value="on_leave">休職中</option>
+                <option value="retired">退職</option>
               </select>
             </div>
             <Button onClick={handleEditUser} className="w-full">更新</Button>
