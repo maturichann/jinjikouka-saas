@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 
 type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
+type UserRank = 'S' | 'J' | null
 
 type User = {
   id: string
@@ -35,6 +36,7 @@ type User = {
   department: string
   password_hash: string
   created_at: string
+  rank: UserRank
 }
 
 export default function UsersPage() {
@@ -49,7 +51,8 @@ export default function UsersPage() {
     staff_code: "",
     name: "",
     role: "staff" as UserRole,
-    department: ""
+    department: "",
+    rank: null as UserRank
   })
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
@@ -96,6 +99,16 @@ export default function UsersPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
+  const getRankBadge = (rank: UserRank) => {
+    if (!rank) return <span className="text-gray-400">-</span>
+    const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
+      S: { variant: "default", label: "Sランク" },
+      J: { variant: "secondary", label: "Jランク" }
+    }
+    const config = variants[rank]
+    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
+
   const handleCreateUser = async () => {
     const supabase = supabaseRef.current
     if (!supabase) return
@@ -111,14 +124,15 @@ export default function UsersPage() {
           name: newUser.name,
           role: newUser.role,
           department: newUser.department,
-          password_hash: password
+          password_hash: password,
+          rank: newUser.rank
         }])
         .select()
 
       if (error) throw error
 
       setGeneratedPassword(password)
-      setNewUser({ staff_code: "", name: "", role: "staff", department: "" })
+      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null })
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -139,7 +153,8 @@ export default function UsersPage() {
           staff_code: editingUser.staff_code,
           name: editingUser.name,
           role: editingUser.role,
-          department: editingUser.department
+          department: editingUser.department,
+          rank: editingUser.rank
         })
         .eq('id', editingUser.id)
 
@@ -296,6 +311,19 @@ export default function UsersPage() {
                   <option value="admin">管理者</option>
                 </select>
               </div>
+              <div>
+                <Label htmlFor="rank">ランク</Label>
+                <select
+                  id="rank"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={newUser.rank || ""}
+                  onChange={(e) => setNewUser({ ...newUser, rank: (e.target.value || null) as UserRank })}
+                >
+                  <option value="">未設定</option>
+                  <option value="S">Sランク</option>
+                  <option value="J">Jランク</option>
+                </select>
+              </div>
 
               {generatedPassword ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -329,6 +357,7 @@ export default function UsersPage() {
                 <TableHead>スタッフコード</TableHead>
                 <TableHead>部署</TableHead>
                 <TableHead>役割</TableHead>
+                <TableHead>ランク</TableHead>
                 <TableHead>パスワード</TableHead>
                 <TableHead>登録日</TableHead>
                 <TableHead>操作</TableHead>
@@ -341,6 +370,7 @@ export default function UsersPage() {
                   <TableCell>{u.staff_code}</TableCell>
                   <TableCell>{u.department}</TableCell>
                   <TableCell>{getRoleBadge(u.role)}</TableCell>
+                  <TableCell>{getRankBadge(u.rank)}</TableCell>
                   <TableCell>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded">
                       {u.password_hash}
@@ -432,6 +462,19 @@ export default function UsersPage() {
                 <option value="manager">店長</option>
                 <option value="mg">MG</option>
                 <option value="admin">管理者</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="edit-rank">ランク</Label>
+              <select
+                id="edit-rank"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={editingUser?.rank || ""}
+                onChange={(e) => editingUser && setEditingUser({ ...editingUser, rank: (e.target.value || null) as UserRank })}
+              >
+                <option value="">未設定</option>
+                <option value="S">Sランク</option>
+                <option value="J">Jランク</option>
               </select>
             </div>
             <Button onClick={handleEditUser} className="w-full">更新</Button>

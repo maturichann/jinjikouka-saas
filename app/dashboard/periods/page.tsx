@@ -37,12 +37,15 @@ type Period = {
   period_summary?: string
 }
 
+type UserRank = 'S' | 'J' | null
+
 type UserForAssignment = {
   id: string
   name: string
   staff_code: string
   department: string
   role: string
+  rank: UserRank
 }
 
 export default function PeriodsPage() {
@@ -58,6 +61,7 @@ export default function PeriodsPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [selectedRank, setSelectedRank] = useState<string>("")
   const [newPeriod, setNewPeriod] = useState({
     name: "",
     start_date: "",
@@ -97,7 +101,7 @@ export default function PeriodsPage() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, staff_code, department, role')
+        .select('id, name, staff_code, department, role, rank')
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -232,15 +236,18 @@ export default function PeriodsPage() {
   // 店舗一覧を抽出（重複を除去してソート）
   const departments = [...new Set(users.map(u => u.department).filter(Boolean))].sort()
 
-  // フィルタリングされたユーザー
-  const filteredUsers = selectedDepartment
-    ? users.filter(u => u.department === selectedDepartment)
-    : users
+  // フィルタリングされたユーザー（店舗とランクで絞り込み）
+  const filteredUsers = users.filter(u => {
+    const matchesDepartment = !selectedDepartment || u.department === selectedDepartment
+    const matchesRank = !selectedRank || u.rank === selectedRank
+    return matchesDepartment && matchesRank
+  })
 
   const handleOpenAssignDialog = (period: Period) => {
     setSelectedPeriodForAssignment(period)
     setSelectedUserIds([])
     setSelectedDepartment("")
+    setSelectedRank("")
     setIsAssignDialogOpen(true)
   }
 
@@ -592,20 +599,35 @@ export default function PeriodsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* 店舗フィルター */}
-            <div>
-              <Label htmlFor="department-filter">店舗で絞り込み</Label>
-              <select
-                id="department-filter"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-              >
-                <option value="">全ての店舗</option>
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
+            {/* フィルター */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="department-filter">店舗で絞り込み</Label>
+                <select
+                  id="department-filter"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                >
+                  <option value="">全ての店舗</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="rank-filter">ランクで絞り込み</Label>
+                <select
+                  id="rank-filter"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={selectedRank}
+                  onChange={(e) => setSelectedRank(e.target.value)}
+                >
+                  <option value="">全てのランク</option>
+                  <option value="S">Sランク</option>
+                  <option value="J">Jランク</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -639,6 +661,7 @@ export default function PeriodsPage() {
                         </div>
                         <div className="text-sm text-gray-500">
                           {user.department} - {user.role}
+                          {user.rank && <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-xs">{user.rank}ランク</span>}
                         </div>
                       </div>
                     </Label>
