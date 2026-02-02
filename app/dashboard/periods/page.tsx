@@ -57,6 +57,7 @@ export default function PeriodsPage() {
   const [selectedPeriodForAssignment, setSelectedPeriodForAssignment] = useState<Period | null>(null)
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [isAssigning, setIsAssigning] = useState(false)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const [newPeriod, setNewPeriod] = useState({
     name: "",
     start_date: "",
@@ -228,9 +229,18 @@ export default function PeriodsPage() {
     }
   }
 
+  // 店舗一覧を抽出（重複を除去してソート）
+  const departments = [...new Set(users.map(u => u.department).filter(Boolean))].sort()
+
+  // フィルタリングされたユーザー
+  const filteredUsers = selectedDepartment
+    ? users.filter(u => u.department === selectedDepartment)
+    : users
+
   const handleOpenAssignDialog = (period: Period) => {
     setSelectedPeriodForAssignment(period)
     setSelectedUserIds([])
+    setSelectedDepartment("")
     setIsAssignDialogOpen(true)
   }
 
@@ -243,10 +253,15 @@ export default function PeriodsPage() {
   }
 
   const handleToggleAll = () => {
-    if (selectedUserIds.length === users.length) {
-      setSelectedUserIds([])
+    const filteredIds = filteredUsers.map(u => u.id)
+    const allFilteredSelected = filteredIds.every(id => selectedUserIds.includes(id))
+
+    if (allFilteredSelected) {
+      // フィルター中のユーザーを選択解除
+      setSelectedUserIds(prev => prev.filter(id => !filteredIds.includes(id)))
     } else {
-      setSelectedUserIds(users.map(u => u.id))
+      // フィルター中のユーザーを全て選択（既存の選択を維持）
+      setSelectedUserIds(prev => [...new Set([...prev, ...filteredIds])])
     }
   }
 
@@ -577,20 +592,36 @@ export default function PeriodsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* 店舗フィルター */}
+            <div>
+              <Label htmlFor="department-filter">店舗で絞り込み</Label>
+              <select
+                id="department-filter"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+              >
+                <option value="">全ての店舗</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="select-all"
-                checked={selectedUserIds.length === users.length && users.length > 0}
+                checked={filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u.id))}
                 onCheckedChange={handleToggleAll}
               />
               <Label htmlFor="select-all" className="font-semibold">
-                全員を選択 ({selectedUserIds.length}/{users.length})
+                {selectedDepartment ? `${selectedDepartment}の全員を選択` : '全員を選択'} ({selectedUserIds.length}人選択中 / 表示: {filteredUsers.length}人)
               </Label>
             </div>
 
             <div className="border rounded-lg max-h-96 overflow-y-auto">
               <div className="p-4 space-y-2">
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
                     <Checkbox
                       id={`user-${user.id}`}
