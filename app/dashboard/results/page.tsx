@@ -110,11 +110,12 @@ export default function ResultsPage() {
         if (error) throw error
         evaluationsData = data || []
       } else {
-        // スタッフは自分の評価のみ閲覧可能
+        // スタッフは自分の本人評価のみ閲覧可能
         const { data, error } = await supabase
           .from('evaluations')
           .select('*')
           .eq('evaluatee_id', user.id)
+          .eq('stage', 'self')
           .order('created_at', { ascending: false })
 
         if (error) throw error
