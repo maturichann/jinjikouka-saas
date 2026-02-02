@@ -1,11 +1,21 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardNav } from "@/components/dashboard/nav"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
 
 export default function DashboardLayout({
   children,
@@ -14,6 +24,50 @@ export default function DashboardLayout({
 }) {
   const { user, logout, isLoading } = useAuth()
   const router = useRouter()
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
+
+  const handleChangePassword = async () => {
+    if (!user || !supabaseRef.current) return
+
+    if (!newPassword.trim()) {
+      alert('新しいパスワードを入力してください')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert('パスワードが一致しません')
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+
+      const { error } = await supabaseRef.current
+        .from('users')
+        .update({ password_hash: newPassword })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      alert('パスワードを変更しました')
+      setIsPasswordDialogOpen(false)
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (error) {
+      console.error('パスワード変更エラー:', error)
+      alert('パスワードの変更に失敗しました')
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -99,11 +153,57 @@ export default function DashboardLayout({
               {getRoleBadge(user.role)}
             </div>
           </div>
-          <Button variant="outline" size="sm" className="w-full" onClick={handleLogout}>
-            ログアウト
-          </Button>
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setIsPasswordDialogOpen(true)}>
+              パスワード変更
+            </Button>
+            <Button variant="outline" size="sm" className="w-full" onClick={handleLogout}>
+              ログアウト
+            </Button>
+          </div>
         </div>
       </aside>
+
+      {/* パスワード変更ダイアログ */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>パスワード変更</DialogTitle>
+            <DialogDescription>
+              新しいパスワードを入力してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">新しいパスワード</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="新しいパスワード"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm-password">パスワード確認</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder="もう一度入力"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              className="w-full"
+              disabled={isChangingPassword}
+            >
+              {isChangingPassword ? '変更中...' : 'パスワードを変更'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* メインコンテンツ */}
       <main className="flex-1 p-8">
