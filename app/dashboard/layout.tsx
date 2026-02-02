@@ -90,8 +90,8 @@ export default function DashboardLayout({
   const getRoleBadge = (role: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
       admin: { variant: "default", label: "管理者" },
-      mg: { variant: "default", label: "MG" },
-      manager: { variant: "secondary", label: "店長" },
+      mg: { variant: "default", label: "MG評価者" },
+      manager: { variant: "secondary", label: "店長評価者" },
       staff: { variant: "outline", label: "スタッフ" }
     }
     const config = variants[role] || variants.staff

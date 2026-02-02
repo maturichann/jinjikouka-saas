@@ -95,8 +95,8 @@ export default function UsersPage() {
   const getRoleBadge = (role: UserRole) => {
     const variants: Record<UserRole, { variant: "default" | "secondary" | "outline", label: string }> = {
       admin: { variant: "default", label: "管理者" },
-      mg: { variant: "default", label: "MG" },
-      manager: { variant: "secondary", label: "店長" },
+      mg: { variant: "default", label: "MG評価者" },
+      manager: { variant: "secondary", label: "店長評価者" },
       staff: { variant: "outline", label: "スタッフ" }
     }
     const config = variants[role]
@@ -328,8 +328,8 @@ export default function UsersPage() {
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
                 >
                   <option value="staff">スタッフ</option>
-                  <option value="manager">店長</option>
-                  <option value="mg">MG</option>
+                  <option value="manager">店長評価者</option>
+                  <option value="mg">MG評価者</option>
                   <option value="admin">管理者</option>
                 </select>
               </div>
