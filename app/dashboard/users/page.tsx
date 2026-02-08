@@ -63,6 +63,7 @@ export default function UsersPage() {
   })
   const [allDepartments, setAllDepartments] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("active")
+  const [departmentFilter, setDepartmentFilter] = useState<string>("")
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
   const [newPasswordInput, setNewPasswordInput] = useState("")
@@ -138,10 +139,12 @@ export default function UsersPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
-  // ステータスでフィルタリングされたユーザー
-  const filteredUsers = statusFilter === "all"
-    ? users
-    : users.filter(u => u.status === statusFilter)
+  // ステータスと店舗でフィルタリングされたユーザー
+  const filteredUsers = users.filter(u => {
+    const matchesStatus = statusFilter === "all" || u.status === statusFilter
+    const matchesDepartment = !departmentFilter || u.department === departmentFilter
+    return matchesStatus && matchesDepartment
+  })
 
   const handleCreateUser = async () => {
     const supabase = supabaseRef.current
@@ -433,19 +436,35 @@ export default function UsersPage() {
               <CardTitle>ユーザー一覧</CardTitle>
               <CardDescription>登録されているユーザーの一覧（表示: {filteredUsers.length}人 / 全体: {users.length}人）</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="status-filter" className="text-sm">表示:</Label>
-              <select
-                id="status-filter"
-                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="active">在籍中のみ</option>
-                <option value="on_leave">休職中のみ</option>
-                <option value="retired">退職者のみ</option>
-                <option value="all">全て表示</option>
-              </select>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="department-filter" className="text-sm">店舗:</Label>
+                <select
+                  id="department-filter"
+                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                >
+                  <option value="">全店舗</option>
+                  {allDepartments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="status-filter" className="text-sm">表示:</Label>
+                <select
+                  id="status-filter"
+                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="active">在籍中のみ</option>
+                  <option value="on_leave">休職中のみ</option>
+                  <option value="retired">退職者のみ</option>
+                  <option value="all">全て表示</option>
+                </select>
+              </div>
             </div>
           </div>
         </CardHeader>
