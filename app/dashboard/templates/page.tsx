@@ -531,7 +531,7 @@ export default function TemplatesPage() {
                           htmlFor="hide-criteria-self"
                           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
-                          本人評価時に評価基準を非表示にする
+                          本人・店長評価時に評価基準を非表示にする
                         </Label>
                       </div>
                       <Button onClick={handleAddItem} className="w-full">追加</Button>
@@ -761,7 +761,7 @@ export default function TemplatesPage() {
                   htmlFor="edit-hide-criteria-self"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
-                  本人評価時に評価基準を非表示にする
+                  本人・店長評価時に評価基準を非表示にする
                 </Label>
               </div>
               <Button onClick={handleEditItem} className="w-full">更新</Button>
