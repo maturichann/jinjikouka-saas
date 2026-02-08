@@ -578,7 +578,8 @@ export default function EvaluationsPage() {
                 <CardHeader>
                   <CardTitle className="text-lg">{item.name}</CardTitle>
                   <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
-                  {item.criteria && (
+                  {/* 採点基準はMG以上（mg, final, admin）のみ表示 */}
+                  {item.criteria && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
                     <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
                       <p className="font-semibold text-blue-900 mb-1">採点基準:</p>
                       <pre className="text-blue-800 whitespace-pre-line font-sans">{item.criteria}</pre>
@@ -604,8 +605,8 @@ export default function EvaluationsPage() {
                             <div className="font-semibold text-base">
                               {grade}評価 - {item.grade_scores?.[grade] || 0}点
                             </div>
-                            {/* 本人評価時にhide_criteria_from_selfがtrueの場合は評価基準を非表示 */}
-                            {item.grade_criteria?.[grade] && !(currentEvaluation?.stage === 'self' && item.hide_criteria_from_self) && (
+                            {/* 評価基準はMG以上（mg, final）のみ表示 */}
+                            {item.grade_criteria?.[grade] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
                               <div className="text-sm text-gray-600 mt-1">
                                 {item.grade_criteria[grade]}
                               </div>

@@ -48,6 +48,7 @@ type UserForAssignment = {
   role: string
   rank: UserRank
   status: UserStatus
+  skip_manager_evaluation: boolean
 }
 
 export default function PeriodsPage() {
@@ -103,12 +104,15 @@ export default function PeriodsPage() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, staff_code, department, role, rank, status')
+        .select('id, name, staff_code, department, role, rank, status, skip_manager_evaluation')
         .eq('status', 'active')  // 在籍中のユーザーのみ取得
         .order('name', { ascending: true })
 
       if (error) throw error
-      setUsers(data || [])
+      setUsers((data || []).map(u => ({
+        ...u,
+        skip_manager_evaluation: u.skip_manager_evaluation || false
+      })))
     } catch (error) {
       console.error('ユーザーの取得エラー:', error)
     }
@@ -290,10 +294,13 @@ export default function PeriodsPage() {
       console.log('選択された評価期間:', selectedPeriodForAssignment)
       console.log('選択されたユーザーID:', selectedUserIds)
 
-      // 各ユーザーに対して4段階の評価を作成（self, manager, mg, final）
+      // 各ユーザーに対して評価を作成（店長スキップ設定を考慮）
       const evaluationsToCreate = []
 
       for (const userId of selectedUserIds) {
+        const targetUser = users.find(u => u.id === userId)
+        const skipManager = targetUser?.skip_manager_evaluation || false
+
         // 本人評価
         evaluationsToCreate.push({
           period_id: selectedPeriodForAssignment.id,
@@ -303,14 +310,16 @@ export default function PeriodsPage() {
           status: 'pending'
         })
 
-        // 店長評価（evaluator_idは後で設定）
-        evaluationsToCreate.push({
-          period_id: selectedPeriodForAssignment.id,
-          evaluatee_id: userId,
-          evaluator_id: null,
-          stage: 'manager',
-          status: 'pending'
-        })
+        // 店長評価（スキップでない場合のみ）
+        if (!skipManager) {
+          evaluationsToCreate.push({
+            period_id: selectedPeriodForAssignment.id,
+            evaluatee_id: userId,
+            evaluator_id: null,
+            stage: 'manager',
+            status: 'pending'
+          })
+        }
 
         // MG評価（evaluator_idは後で設定）
         evaluationsToCreate.push({

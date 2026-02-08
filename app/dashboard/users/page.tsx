@@ -40,6 +40,7 @@ type User = {
   rank: UserRank
   status: UserStatus
   managed_departments: string[]
+  skip_manager_evaluation: boolean
 }
 
 export default function UsersPage() {
@@ -57,7 +58,8 @@ export default function UsersPage() {
     department: "",
     rank: null as UserRank,
     status: "active" as UserStatus,
-    managed_departments: [] as string[]
+    managed_departments: [] as string[],
+    skip_manager_evaluation: false
   })
   const [allDepartments, setAllDepartments] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("active")
@@ -84,7 +86,8 @@ export default function UsersPage() {
       if (error) throw error
       const usersData = (data || []).map(u => ({
         ...u,
-        managed_departments: u.managed_departments || []
+        managed_departments: u.managed_departments || [],
+        skip_manager_evaluation: u.skip_manager_evaluation || false
       }))
       setUsers(usersData)
 
@@ -158,14 +161,15 @@ export default function UsersPage() {
           password_hash: password,
           rank: newUser.rank,
           status: newUser.status,
-          managed_departments: newUser.role === 'mg' ? newUser.managed_departments : []
+          managed_departments: newUser.role === 'mg' ? newUser.managed_departments : [],
+          skip_manager_evaluation: newUser.skip_manager_evaluation
         }])
         .select()
 
       if (error) throw error
 
       setGeneratedPassword(password)
-      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null, status: "active", managed_departments: [] })
+      setNewUser({ staff_code: "", name: "", role: "staff", department: "", rank: null, status: "active", managed_departments: [], skip_manager_evaluation: false })
 
       // ユーザーリストを再取得
       fetchUsers()
@@ -189,7 +193,8 @@ export default function UsersPage() {
           department: editingUser.department,
           rank: editingUser.rank,
           status: editingUser.status,
-          managed_departments: editingUser.role === 'mg' ? editingUser.managed_departments : []
+          managed_departments: editingUser.role === 'mg' ? editingUser.managed_departments : [],
+          skip_manager_evaluation: editingUser.skip_manager_evaluation
         })
         .eq('id', editingUser.id)
 
@@ -388,6 +393,19 @@ export default function UsersPage() {
                   </div>
                 </div>
               )}
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="skip-manager"
+                  checked={newUser.skip_manager_evaluation}
+                  onChange={(e) => setNewUser({ ...newUser, skip_manager_evaluation: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="skip-manager" className="cursor-pointer">
+                  店長評価をスキップ（本人評価→MG評価）
+                </Label>
+              </div>
 
               {generatedPassword ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -600,6 +618,18 @@ export default function UsersPage() {
                 <option value="on_leave">休職中</option>
                 <option value="retired">退職</option>
               </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-skip-manager"
+                checked={editingUser?.skip_manager_evaluation || false}
+                onChange={(e) => editingUser && setEditingUser({ ...editingUser, skip_manager_evaluation: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="edit-skip-manager" className="cursor-pointer">
+                店長評価をスキップ（本人評価→MG評価）
+              </Label>
             </div>
             <Button onClick={handleEditUser} className="w-full">更新</Button>
           </div>
