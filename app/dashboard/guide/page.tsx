@@ -11,6 +11,63 @@ export default function GuidePage() {
         <p className="text-gray-600 mt-2">人事考課SAASの詳細な操作方法</p>
       </div>
 
+      {/* 権限一覧 */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-900">👤 役割と権限</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-3">役割</th>
+                  <th className="text-center py-2 px-3">ユーザー管理</th>
+                  <th className="text-center py-2 px-3">テンプレート</th>
+                  <th className="text-center py-2 px-3">評価期間</th>
+                  <th className="text-center py-2 px-3">評価実施</th>
+                  <th className="text-center py-2 px-3">評価閲覧</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-700">
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">管理者</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">全て</td>
+                  <td className="text-center">全て</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">MG評価者</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">管轄店舗</td>
+                  <td className="text-center">管轄店舗</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">店長評価者</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">自店舗</td>
+                  <td className="text-center">自店舗</td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-3 font-semibold">スタッフ</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">本人評価のみ</td>
+                  <td className="text-center">本人評価のみ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ステップ1: テンプレート作成 */}
       <Card>
         <CardHeader>
@@ -18,7 +75,7 @@ export default function GuidePage() {
             <Badge variant="default" className="text-lg px-3 py-1">ステップ 1</Badge>
             <CardTitle>評価テンプレートを作成</CardTitle>
           </div>
-          <CardDescription>評価項目と配点を設定します</CardDescription>
+          <CardDescription>評価項目と配点を設定します（管理者・MG評価者のみ）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -28,8 +85,8 @@ export default function GuidePage() {
               <li>「新しいテンプレートを作成」ボタンをクリック</li>
               <li>テンプレート名と説明を入力
                 <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li>例: 「2024年一般社員用評価」</li>
-                  <li>説明: 「営業・事務スタッフ向けの標準評価」</li>
+                  <li>例: 「2024年Sランク用評価」</li>
+                  <li>説明: 「Sランクスタッフ向けの評価シート」</li>
                 </ul>
               </li>
               <li>作成したテンプレートを選択</li>
@@ -38,19 +95,17 @@ export default function GuidePage() {
                   <li><strong>項目名</strong>: 例「業務遂行能力」</li>
                   <li><strong>説明</strong>: 項目の詳細説明</li>
                   <li><strong>配点</strong>: 例「30」（合計100点になるように調整）</li>
-                  <li><strong>採点基準</strong>: 例「5.0: 優れている / 3.0: 標準的 / 1.0: 改善が必要」</li>
+                  <li><strong>採点基準</strong>: 各グレード（A〜E）の基準を設定</li>
                 </ul>
               </li>
-              <li>必要な項目をすべて追加（通常3〜5項目）</li>
             </ol>
           </div>
 
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm font-semibold text-blue-900 mb-1">💡 ポイント</p>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>・配点の合計は100点にする必要はありませんが、分かりやすいです</li>
-              <li>・採点基準を明確にすると、評価者が迷わず評価できます</li>
-              <li>・テンプレートは何度でも再利用できます</li>
+          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p className="text-sm font-semibold text-yellow-900 mb-1">💡 評価基準の表示について</p>
+            <ul className="text-sm text-yellow-800 space-y-1">
+              <li>・<strong>本人評価・店長評価</strong>: 評価基準は非表示</li>
+              <li>・<strong>MG評価・最終評価</strong>: 評価基準が表示されます</li>
             </ul>
           </div>
         </CardContent>
@@ -63,7 +118,7 @@ export default function GuidePage() {
             <Badge variant="default" className="text-lg px-3 py-1">ステップ 2</Badge>
             <CardTitle>ユーザーを追加</CardTitle>
           </div>
-          <CardDescription>評価対象者と評価者を登録します</CardDescription>
+          <CardDescription>評価対象者と評価者を登録します（管理者・MG評価者のみ）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -73,29 +128,26 @@ export default function GuidePage() {
               <li>「新しいユーザーを追加」ボタンをクリック</li>
               <li>ユーザー情報を入力
                 <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li><strong>メールアドレス</strong>: ログインに使用</li>
+                  <li><strong>スタッフコード</strong>: ログインIDとして使用（例: 149）</li>
                   <li><strong>名前</strong>: フルネーム</li>
-                  <li><strong>部署</strong>: 所属部署名</li>
-                  <li><strong>役割</strong>: 権限レベルを選択
-                    <ul className="list-disc list-inside ml-6 mt-1">
-                      <li><strong>admin</strong>: 全機能にアクセス可能</li>
-                      <li><strong>mg</strong>: 全体の評価を閲覧・実施可能</li>
-                      <li><strong>manager (店長)</strong>: 自部署の評価を実施可能</li>
-                      <li><strong>staff</strong>: 自分の評価のみ実施可能</li>
-                    </ul>
-                  </li>
+                  <li><strong>部署</strong>: 所属店舗名（例: Belle福島店）</li>
+                  <li><strong>役割</strong>: 権限レベルを選択</li>
+                  <li><strong>ランク</strong>: S / J / M から選択</li>
+                  <li><strong>店長評価スキップ</strong>: チェックすると本人評価→MG評価へ直接進む</li>
                 </ul>
               </li>
+              <li>MG評価者の場合は「管轄店舗」を選択</li>
               <li>「作成」ボタンをクリック</li>
-              <li>⚠️ <strong>重要</strong>: 自動生成されたパスワードをメモして、ユーザーに伝える</li>
+              <li>初期パスワードはスタッフコードと同じです</li>
             </ol>
           </div>
 
-          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <p className="text-sm font-semibold text-yellow-900 mb-1">⚠️ 注意</p>
-            <ul className="text-sm text-yellow-800 space-y-1">
-              <li>・パスワードは一度しか表示されません！必ずメモしてください</li>
-              <li>・パスワードを忘れた場合は「パスワード再発行」で新しいパスワードを発行できます</li>
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-sm font-semibold text-green-900 mb-1">✨ ステータス管理</p>
+            <ul className="text-sm text-green-800 space-y-1">
+              <li>・<strong>在籍中</strong>: 通常の状態、評価割り当て対象</li>
+              <li>・<strong>休職中</strong>: 一時的に評価対象外</li>
+              <li>・<strong>退職</strong>: 評価対象外、データは保持</li>
             </ul>
           </div>
         </CardContent>
@@ -108,7 +160,7 @@ export default function GuidePage() {
             <Badge variant="default" className="text-lg px-3 py-1">ステップ 3</Badge>
             <CardTitle>評価期間を作成</CardTitle>
           </div>
-          <CardDescription>いつからいつまでの評価かを設定します</CardDescription>
+          <CardDescription>いつからいつまでの評価かを設定します（管理者・MG評価者・店長評価者）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -125,17 +177,7 @@ export default function GuidePage() {
                 </ul>
               </li>
               <li>「作成」ボタンをクリック</li>
-              <li>作成された評価期間のステータスを「実施中」に変更（必要に応じて）</li>
             </ol>
-          </div>
-
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm font-semibold text-blue-900 mb-1">💡 ステータスについて</p>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>・<strong>下書き</strong>: 準備中、まだ評価は開始されていない</li>
-              <li>・<strong>実施中</strong>: 評価が実施可能な状態</li>
-              <li>・<strong>完了</strong>: 評価期間が終了</li>
-            </ul>
           </div>
         </CardContent>
       </Card>
@@ -153,29 +195,21 @@ export default function GuidePage() {
           <div>
             <h3 className="font-semibold text-lg mb-2">✅ 手順</h3>
             <ol className="list-decimal list-inside space-y-2 text-gray-700">
-              <li>「評価期間管理」ページで、対象の評価期間の行にある「評価を割り当て」ボタンをクリック</li>
-              <li>評価対象のユーザーをチェックボックスで選択
-                <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li>「全員を選択」で一括選択も可能</li>
-                  <li>各ユーザーの名前、メール、部署、役割が表示されます</li>
-                </ul>
-              </li>
+              <li>「評価期間管理」ページで「評価を割り当て」ボタンをクリック</li>
+              <li>店舗・ランクでフィルタリング可能</li>
+              <li>評価対象のユーザーをチェックボックスで選択</li>
               <li>「割り当て」ボタンをクリック</li>
-              <li>システムが自動的に各ユーザーに3段階の評価を作成します
-                <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li><strong>本人評価 (self)</strong>: 評価対象者が自己評価</li>
-                  <li><strong>店長評価 (manager)</strong>: 店長が評価</li>
-                  <li><strong>MG評価 (mg)</strong>: MGが最終評価</li>
-                </ul>
-              </li>
             </ol>
           </div>
 
-          <div className="p-4 bg-green-50 rounded-lg">
-            <p className="text-sm font-semibold text-green-900 mb-1">✨ 自動作成される評価</p>
-            <p className="text-sm text-green-800">
-              例えば田中さんを選択すると、田中さん用の「本人評価」「店長評価」「MG評価」の3つが自動的に作成されます。
-            </p>
+          <div className="p-4 bg-purple-50 rounded-lg">
+            <p className="text-sm font-semibold text-purple-900 mb-1">🔄 自動作成される評価</p>
+            <div className="text-sm text-purple-800 space-y-2">
+              <p><strong>通常フロー:</strong></p>
+              <p>本人評価 → 店長評価 → MG評価 → 最終評価</p>
+              <p className="mt-2"><strong>店長スキップ設定時:</strong></p>
+              <p>本人評価 → MG評価 → 最終評価</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -193,40 +227,24 @@ export default function GuidePage() {
           <div>
             <h3 className="font-semibold text-lg mb-2">📝 手順</h3>
             <ol className="list-decimal list-inside space-y-2 text-gray-700">
-              <li>評価者としてログイン（本人、店長、MGのいずれか）</li>
+              <li>評価者としてログイン</li>
               <li>サイドバーの「評価実施」をクリック</li>
-              <li>実施可能な評価が自動的に表示されます</li>
-              <li>ドロップダウンから評価を選択</li>
-              <li>各評価項目にスコアとコメントを入力
-                <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li><strong>評価点</strong>: 1.0〜5.0（小数点1位まで）例: 4.5</li>
-                  <li><strong>コメント</strong>: 評価の理由や詳細を記入</li>
-                  <li>⚡ <strong>自動保存</strong>: 入力すると自動的にデータベースに保存されます</li>
-                </ul>
-              </li>
+              <li>実施可能な評価がドロップダウンに表示されます</li>
+              <li>各評価項目でA〜Eグレードを選択</li>
+              <li>コメントを入力（任意）</li>
+              <li>⚡ 入力は自動保存されます</li>
               <li>すべての項目を入力後、「評価を提出」ボタンをクリック</li>
-              <li>⚠️ 提出後は編集できなくなります</li>
             </ol>
-          </div>
-
-          <div className="p-4 bg-purple-50 rounded-lg">
-            <p className="text-sm font-semibold text-purple-900 mb-1">🔄 評価フロー</p>
-            <ol className="text-sm text-purple-800 space-y-1">
-              <li>1. <strong>本人評価</strong>: スタッフが自己評価を入力</li>
-              <li>2. <strong>店長評価</strong>: 店長が部下を評価</li>
-              <li>3. <strong>MG評価</strong>: MGが最終評価を実施</li>
-            </ol>
-            <p className="text-sm text-purple-800 mt-2">
-              この順番で評価を進めることで、多角的な評価が可能になります。
-            </p>
           </div>
 
           <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm font-semibold text-blue-900 mb-1">💡 総合評価の計算</p>
-            <p className="text-sm text-blue-800">
-              総合スコアは各項目のスコアを配点で加重平均して自動計算されます。<br/>
-              例: 業務遂行能力（4.5点、配点30）+ コミュニケーション（4.0点、配点20）→ 総合スコア = (4.5×30 + 4.0×20) / (30+20) = 4.3
-            </p>
+            <p className="text-sm font-semibold text-blue-900 mb-1">💡 評価者ごとの表示範囲</p>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>・<strong>スタッフ</strong>: 自分の本人評価のみ</li>
+              <li>・<strong>店長評価者</strong>: 自店舗スタッフの店長評価 + 自分の本人評価</li>
+              <li>・<strong>MG評価者</strong>: 管轄店舗スタッフのMG評価</li>
+              <li>・<strong>管理者</strong>: すべての評価</li>
+            </ul>
           </div>
         </CardContent>
       </Card>
@@ -238,30 +256,22 @@ export default function GuidePage() {
             <Badge variant="secondary" className="text-lg px-3 py-1">ステップ 6</Badge>
             <CardTitle>評価結果を確認</CardTitle>
           </div>
-          <CardDescription>提出された評価を閲覧・出力します</CardDescription>
+          <CardDescription>提出された評価を閲覧します</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <h3 className="font-semibold text-lg mb-2">📊 手順</h3>
             <ol className="list-decimal list-inside space-y-2 text-gray-700">
-              <li>サイドバーの「評価一覧」をクリック</li>
-              <li>提出された評価が一覧表示されます
-                <ul className="list-disc list-inside ml-6 mt-1 text-sm">
-                  <li>権限に応じて閲覧可能な評価が自動的にフィルタリングされます</li>
-                  <li><strong>staff</strong>: 自分の評価のみ</li>
-                  <li><strong>manager</strong>: 自部署の評価</li>
-                  <li><strong>mg/admin</strong>: すべての評価</li>
-                </ul>
-              </li>
+              <li>サイドバーの「評価結果」をクリック</li>
+              <li>権限に応じた評価が一覧表示されます</li>
               <li>評価をクリックして詳細を確認</li>
-              <li>「PDFエクスポート」ボタンで評価結果をPDF出力可能</li>
             </ol>
           </div>
 
-          <div className="p-4 bg-green-50 rounded-lg">
-            <p className="text-sm font-semibold text-green-900 mb-1">📄 PDF出力</p>
-            <p className="text-sm text-green-800">
-              評価結果はPDF形式で出力できます。面談資料や保管用としてご活用ください。
+          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p className="text-sm font-semibold text-yellow-900 mb-1">⚠️ スタッフの閲覧制限</p>
+            <p className="text-sm text-yellow-800">
+              スタッフは自分の本人評価のみ閲覧可能です。店長評価・MG評価・最終評価は閲覧できません。
             </p>
           </div>
         </CardContent>
@@ -276,35 +286,35 @@ export default function GuidePage() {
           <div>
             <h3 className="font-semibold text-gray-900 mb-1">Q1. パスワードを忘れた場合は？</h3>
             <p className="text-sm text-gray-700">
-              A. 管理者が「ユーザー管理」ページで該当ユーザーを編集し、「パスワード再発行」ボタンから新しいパスワードを発行できます。
+              A. サイドバー下部の「パスワード変更」から自分で変更できます。管理者・MG評価者は「ユーザー管理」から他ユーザーのパスワードを再発行できます。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Q2. 提出した評価を修正できますか？</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Q2. 店長がいないスタッフはどうすれば？</h3>
             <p className="text-sm text-gray-700">
-              A. 一度提出した評価は編集できません。提出前に内容をよく確認してください。
+              A. ユーザー編集画面で「店長評価をスキップ」にチェックを入れてください。本人評価→MG評価に直接進みます。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Q3. 評価の進捗状況を確認するには？</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Q3. 退職者のデータはどうなる？</h3>
             <p className="text-sm text-gray-700">
-              A. 「評価一覧」ページで、ステータス（提出済み/未提出）を確認できます。
+              A. ステータスを「退職」に変更すると、評価割り当て対象から外れますが、過去のデータは保持されます。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Q4. 評価は自動保存されますか？</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Q4. MG評価者の管轄店舗を変更するには？</h3>
             <p className="text-sm text-gray-700">
-              A. はい。スコアやコメントを入力すると、リアルタイムで自動的にデータベースに保存されます。ブラウザを閉じても入力内容は保持されます。
+              A. ユーザー管理でMG評価者を編集し、「管轄店舗」のチェックボックスで設定できます。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Q5. 同じテンプレートを複数の評価期間で使えますか？</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Q5. 評価基準が表示されないのはなぜ？</h3>
             <p className="text-sm text-gray-700">
-              A. はい。一度作成したテンプレートは何度でも再利用できます。
+              A. 本人評価と店長評価では評価基準は非表示です。MG評価・最終評価でのみ表示されます。
             </p>
           </div>
         </CardContent>
@@ -317,32 +327,32 @@ export default function GuidePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">「評価の取得に失敗しました」と表示される</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">評価対象者が表示されない</h3>
             <p className="text-sm text-gray-700 mb-2">
-              <strong>原因</strong>: まだ評価が割り当てられていないか、ログインユーザーに実施可能な評価がありません。
+              <strong>原因</strong>: ユーザーのステータスが「在籍中」以外、または部署名が一致していない可能性があります。
             </p>
             <p className="text-sm text-gray-700">
-              <strong>解決策</strong>: 評価期間を作成し、「評価を割り当て」で対象ユーザーを選択してください。
+              <strong>解決策</strong>: ユーザー管理でステータスと部署名を確認してください。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">ログインできない</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">店長評価者に他店舗のスタッフが表示される</h3>
             <p className="text-sm text-gray-700 mb-2">
-              <strong>原因</strong>: メールアドレスまたはパスワードが間違っています。
+              <strong>原因</strong>: 部署名が完全一致していない可能性があります。
             </p>
             <p className="text-sm text-gray-700">
-              <strong>解決策</strong>: 管理者にパスワード再発行を依頼してください。
+              <strong>解決策</strong>: 店長とスタッフの部署名が完全に同じか確認してください（スペースの有無など）。
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">評価が表示されない</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">MG評価者に評価が表示されない</h3>
             <p className="text-sm text-gray-700 mb-2">
-              <strong>原因</strong>: 権限によって閲覧できる評価が制限されています。
+              <strong>原因</strong>: 管轄店舗が設定されていない可能性があります。
             </p>
             <p className="text-sm text-gray-700">
-              <strong>解決策</strong>: 自分の権限で閲覧可能な範囲を確認してください。
+              <strong>解決策</strong>: ユーザー管理でMG評価者の「管轄店舗」を設定してください。
             </p>
           </div>
         </CardContent>
