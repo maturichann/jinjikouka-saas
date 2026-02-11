@@ -563,7 +563,7 @@ export default function EvaluationsPage() {
         .update({
           status: 'submitted',
           submitted_at: new Date().toISOString(),
-          evaluator_id: user.id
+          evaluator_id: user!.id
         })
         .eq('id', currentEvaluation.id)
 
@@ -608,7 +608,7 @@ export default function EvaluationsPage() {
         .from('evaluations')
         .update({
           submitted_at: new Date().toISOString(),
-          evaluator_id: user.id
+          evaluator_id: user!.id
         })
         .eq('id', currentEvaluation.id)
 
