@@ -317,17 +317,58 @@ export default function EvaluationsPage() {
     if (!user || !supabase) return
 
     try {
-      // 自分が提出した評価を取得
-      const { data: evaluationsData, error } = await supabase
-        .from('evaluations')
-        .select('*')
-        .eq('evaluator_id', user.id)
-        .eq('status', 'submitted')
-        .order('submitted_at', { ascending: false })
+      let evaluationsData = []
 
-      if (error) throw error
+      // 管理者・MGは全ての提出済み評価を取得可能
+      if (user.role === 'admin') {
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('status', 'submitted')
+          .order('submitted_at', { ascending: false })
 
-      if (!evaluationsData || evaluationsData.length === 0) {
+        if (error) throw error
+        evaluationsData = data || []
+      } else if (user.role === 'mg') {
+        // MGは管轄店舗の全ての提出済み評価を取得可能
+        const managedDepts = user.managed_departments || []
+
+        if (managedDepts.length > 0) {
+          const { data: deptUsers, error: deptError } = await supabase
+            .from('users')
+            .select('id')
+            .in('department', managedDepts)
+
+          if (deptError) throw deptError
+
+          const deptUserIds = (deptUsers || []).map(u => u.id)
+
+          if (deptUserIds.length > 0) {
+            const { data, error } = await supabase
+              .from('evaluations')
+              .select('*')
+              .in('evaluatee_id', deptUserIds)
+              .eq('status', 'submitted')
+              .order('submitted_at', { ascending: false })
+
+            if (error) throw error
+            evaluationsData = data || []
+          }
+        }
+      } else {
+        // その他のユーザーは自分が提出した評価のみ
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluator_id', user.id)
+          .eq('status', 'submitted')
+          .order('submitted_at', { ascending: false })
+
+        if (error) throw error
+        evaluationsData = data || []
+      }
+
+      if (evaluationsData.length === 0) {
         setSubmittedEvaluations([])
         return
       }
@@ -690,7 +731,13 @@ export default function EvaluationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>提出済み評価を確認・編集</CardTitle>
-              <CardDescription>過去に提出した評価を閲覧・編集できます</CardDescription>
+              <CardDescription>
+                {user.role === 'admin'
+                  ? '全ての提出済み評価を閲覧・編集できます'
+                  : user.role === 'mg'
+                    ? '管轄店舗の提出済み評価を閲覧・編集できます'
+                    : '過去に提出した評価を閲覧・編集できます'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {submittedEvaluations.length === 0 ? (
