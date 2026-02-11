@@ -42,6 +42,7 @@ type EvaluationResult = {
   totalScore: number
   submittedAt: string
   overall_comment?: string
+  evaluator_id?: string
   items?: {
     name: string
     description: string
@@ -230,7 +231,8 @@ export default function ResultsPage() {
               totalScore,
               submittedAt: evaluation.submitted_at ?
                 new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
-              items
+              items,
+              evaluator_id: evaluation.evaluator_id
             }
           }
 
@@ -265,7 +267,8 @@ export default function ResultsPage() {
             totalScore,
             submittedAt: evaluation.submitted_at ?
               new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
-            items
+            items,
+            evaluator_id: evaluation.evaluator_id
           }
         })
       )
@@ -444,11 +447,12 @@ export default function ResultsPage() {
 
   const canViewAll = canViewAllEvaluations(user.role)
 
-  // 編集可能かどうかの判定（MG・管理者は全て編集可能）
+  // 編集可能かどうかの判定（提出した本人のみ編集可能）
   const canEdit = (evaluation: EvaluationResult) => {
-    if (user.role === 'admin') return true
-    if (user.role === 'mg') return true
-    return false
+    // 提出済みでないと編集不可
+    if (evaluation.status !== 'submitted') return false
+    // 評価者IDがあり、現在のユーザーと一致する場合のみ編集可能
+    return evaluation.evaluator_id === user.id
   }
 
   // 編集ページへ遷移

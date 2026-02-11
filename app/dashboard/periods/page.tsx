@@ -65,6 +65,17 @@ export default function PeriodsPage() {
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const [selectedRank, setSelectedRank] = useState<string>("")
+  const [isManageAssignmentsDialogOpen, setIsManageAssignmentsDialogOpen] = useState(false)
+  const [selectedPeriodForManage, setSelectedPeriodForManage] = useState<Period | null>(null)
+  const [assignedEvaluations, setAssignedEvaluations] = useState<Array<{
+    id: string
+    evaluatee_id: string
+    evaluatee_name: string
+    stage: string
+    status: string
+  }>>([])
+  const [selectedEvaluationIds, setSelectedEvaluationIds] = useState<string[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
   const [newPeriod, setNewPeriod] = useState({
     name: "",
     start_date: "",
@@ -377,6 +388,104 @@ export default function PeriodsPage() {
     }
   }
 
+  // 割り当て管理ダイアログを開く
+  const handleOpenManageAssignments = async (period: Period) => {
+    setSelectedPeriodForManage(period)
+    setSelectedEvaluationIds([])
+    setIsManageAssignmentsDialogOpen(true)
+    await fetchAssignedEvaluations(period.id)
+  }
+
+  // 割り当て済み評価を取得
+  const fetchAssignedEvaluations = async (periodId: string) => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    try {
+      const { data: evaluations, error } = await supabase
+        .from('evaluations')
+        .select('id, evaluatee_id, stage, status')
+        .eq('period_id', periodId)
+        .order('evaluatee_id')
+
+      if (error) throw error
+
+      // ユーザー名を取得
+      const userIds = [...new Set((evaluations || []).map(e => e.evaluatee_id))]
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', userIds)
+
+      if (usersError) throw usersError
+
+      const usersMap = new Map(usersData?.map(u => [u.id, u.name]) || [])
+
+      setAssignedEvaluations((evaluations || []).map(e => ({
+        ...e,
+        evaluatee_name: usersMap.get(e.evaluatee_id) || '不明'
+      })))
+    } catch (error) {
+      console.error('割り当て済み評価の取得エラー:', error)
+    }
+  }
+
+  // 選択した評価を削除
+  const handleDeleteSelectedEvaluations = async () => {
+    const supabase = supabaseRef.current
+    if (!supabase || selectedEvaluationIds.length === 0) return
+
+    if (!confirm(`選択した${selectedEvaluationIds.length}件の評価を削除してもよろしいですか？\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+
+      const { error } = await supabase
+        .from('evaluations')
+        .delete()
+        .in('id', selectedEvaluationIds)
+
+      if (error) throw error
+
+      alert(`${selectedEvaluationIds.length}件の評価を削除しました`)
+      setSelectedEvaluationIds([])
+
+      // リストを更新
+      if (selectedPeriodForManage) {
+        await fetchAssignedEvaluations(selectedPeriodForManage.id)
+      }
+    } catch (error) {
+      console.error('評価の削除エラー:', error)
+      alert('評価の削除に失敗しました')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // 評価者ごとにグループ化
+  const groupedEvaluations = assignedEvaluations.reduce((acc, eval_) => {
+    if (!acc[eval_.evaluatee_id]) {
+      acc[eval_.evaluatee_id] = {
+        evaluatee_name: eval_.evaluatee_name,
+        evaluations: []
+      }
+    }
+    acc[eval_.evaluatee_id].evaluations.push(eval_)
+    return acc
+  }, {} as Record<string, { evaluatee_name: string, evaluations: typeof assignedEvaluations }>)
+
+  const getStageLabel = (stage: string) => {
+    const labels: Record<string, string> = {
+      self: "本人評価",
+      manager: "店長評価",
+      mg: "MG評価",
+      final: "最終評価"
+    }
+    return labels[stage] || stage
+  }
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
       draft: { variant: "outline", label: "下書き" },
@@ -502,13 +611,20 @@ export default function PeriodsPage() {
                   <TableCell>{period.end_date}</TableCell>
                   <TableCell>{getStatusBadge(period.status)}</TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         variant="default"
                         size="sm"
                         onClick={() => handleOpenAssignDialog(period)}
                       >
                         評価を割り当て
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleOpenManageAssignments(period)}
+                      >
+                        割り当て管理
                       </Button>
                       <Button
                         variant="outline"
@@ -597,6 +713,88 @@ export default function PeriodsPage() {
               />
             </div>
             <Button onClick={handleEdit} className="w-full">更新</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Assignments Dialog */}
+      <Dialog open={isManageAssignmentsDialogOpen} onOpenChange={setIsManageAssignmentsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>割り当て管理</DialogTitle>
+            <DialogDescription>
+              {selectedPeriodForManage?.name} の割り当て済み評価を管理します
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {Object.keys(groupedEvaluations).length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                この期間にはまだ評価が割り当てられていません
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">
+                    {selectedEvaluationIds.length}件選択中 / 全{assignedEvaluations.length}件
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteSelectedEvaluations}
+                    disabled={isDeleting || selectedEvaluationIds.length === 0}
+                  >
+                    {isDeleting ? '削除中...' : '選択した評価を削除'}
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg divide-y max-h-96 overflow-y-auto">
+                  {Object.entries(groupedEvaluations).map(([evaluateeId, group]) => (
+                    <div key={evaluateeId} className="p-3">
+                      <div className="font-semibold mb-2">{group.evaluatee_name}</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {group.evaluations.map(eval_ => (
+                          <label
+                            key={eval_.id}
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-gray-50 ${
+                              selectedEvaluationIds.includes(eval_.id) ? 'border-blue-500 bg-blue-50' : ''
+                            }`}
+                          >
+                            <Checkbox
+                              checked={selectedEvaluationIds.includes(eval_.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedEvaluationIds(prev => [...prev, eval_.id])
+                                } else {
+                                  setSelectedEvaluationIds(prev => prev.filter(id => id !== eval_.id))
+                                }
+                              }}
+                            />
+                            <div className="text-sm">
+                              <div>{getStageLabel(eval_.stage)}</div>
+                              <div className="text-xs text-gray-500">
+                                {eval_.status === 'submitted' ? '提出済' : eval_.status === 'in_progress' ? '入力中' : '未着手'}
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                  <strong>注意:</strong> 評価を削除すると、入力済みのスコアやコメントも全て削除されます。この操作は取り消せません。
+                </div>
+              </>
+            )}
+
+            <Button
+              variant="outline"
+              onClick={() => setIsManageAssignmentsDialogOpen(false)}
+              className="w-full"
+            >
+              閉じる
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

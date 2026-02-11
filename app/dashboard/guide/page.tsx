@@ -211,6 +211,15 @@ export default function GuidePage() {
               <p>本人評価 → MG評価 → 最終評価</p>
             </div>
           </div>
+
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm font-semibold text-red-900 mb-1">🗑️ 割り当ての解除・削除</p>
+            <ul className="text-sm text-red-800 space-y-1">
+              <li>・評価期間一覧の「割り当て管理」ボタンをクリック</li>
+              <li>・削除したい評価をチェックして「選択した評価を削除」</li>
+              <li>・間違えて割り当てた場合に使用してください</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 
@@ -244,6 +253,17 @@ export default function GuidePage() {
               <li>・<strong>店長評価者</strong>: 自店舗スタッフの店長評価 + 自分の本人評価</li>
               <li>・<strong>MG評価者</strong>: 管轄店舗スタッフのMG評価</li>
               <li>・<strong>管理者</strong>: すべての評価</li>
+            </ul>
+          </div>
+
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-sm font-semibold text-green-900 mb-1">✏️ 提出済み評価の編集</p>
+            <ul className="text-sm text-green-800 space-y-1">
+              <li>・「評価実施」ページの「提出済み評価」タブから編集可能</li>
+              <li>・<strong>自分が提出した評価のみ</strong>編集できます</li>
+              <li>・例: Aさんが本人評価 → Aさんのみ編集可能</li>
+              <li>・例: Bさんが店長評価 → Bさんのみ編集可能</li>
+              <li>・「評価結果」ページからも「編集」ボタンで遷移できます</li>
             </ul>
           </div>
         </CardContent>
@@ -315,6 +335,20 @@ export default function GuidePage() {
             <h3 className="font-semibold text-gray-900 mb-1">Q5. 評価基準が表示されないのはなぜ？</h3>
             <p className="text-sm text-gray-700">
               A. 本人評価と店長評価では評価基準は非表示です。MG評価・最終評価でのみ表示されます。
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-1">Q6. 提出済みの評価を修正したい</h3>
+            <p className="text-sm text-gray-700">
+              A. 「評価実施」ページの「提出済み評価」タブから、自分が提出した評価のみ編集できます。他人が提出した評価は編集できません。
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-1">Q7. 間違って評価を割り当ててしまった</h3>
+            <p className="text-sm text-gray-700">
+              A. 「評価期間管理」ページで該当期間の「割り当て管理」ボタンから、評価を選択して削除できます。
             </p>
           </div>
         </CardContent>
