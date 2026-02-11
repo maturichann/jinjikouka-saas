@@ -48,9 +48,12 @@ type Evaluation = {
 export default function EvaluationsPage() {
   const { user } = useAuth()
   const [availableEvaluations, setAvailableEvaluations] = useState<Evaluation[]>([])
+  const [submittedEvaluations, setSubmittedEvaluations] = useState<Evaluation[]>([])
   const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending')
+  const [isEditMode, setIsEditMode] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
 
   if (!supabaseRef.current) {
@@ -212,12 +215,13 @@ export default function EvaluationsPage() {
     }
   }, [user])
 
-  const loadEvaluation = useCallback(async (evaluationId: string) => {
+  const loadEvaluation = useCallback(async (evaluationId: string, forEdit: boolean = false) => {
     const supabase = supabaseRef.current
     if (!supabase) return
 
     try {
       setIsLoading(true)
+      setIsEditMode(forEdit)
 
       // 評価の詳細を取得
       const { data: evalData, error: evalError } = await supabase
@@ -308,11 +312,76 @@ export default function EvaluationsPage() {
     }
   }, [])
 
+  const fetchSubmittedEvaluations = useCallback(async () => {
+    const supabase = supabaseRef.current
+    if (!user || !supabase) return
+
+    try {
+      // 自分が提出した評価を取得
+      const { data: evaluationsData, error } = await supabase
+        .from('evaluations')
+        .select('*')
+        .eq('evaluator_id', user.id)
+        .eq('status', 'submitted')
+        .order('submitted_at', { ascending: false })
+
+      if (error) throw error
+
+      if (!evaluationsData || evaluationsData.length === 0) {
+        setSubmittedEvaluations([])
+        return
+      }
+
+      // ユーザー情報を別途取得
+      const userIds = [...new Set(evaluationsData.map(e => e.evaluatee_id))]
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, department')
+        .in('id', userIds)
+
+      if (usersError) throw usersError
+
+      // 評価期間情報を別途取得
+      const periodIds = [...new Set(evaluationsData.map(e => e.period_id))]
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('evaluation_periods')
+        .select('id, name')
+        .in('id', periodIds)
+
+      if (periodsError) throw periodsError
+
+      // データをマージ
+      const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
+      const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
+
+      const evaluationsWithNames = evaluationsData.map(evaluation => {
+        const evaluatee = usersMap.get(evaluation.evaluatee_id)
+        const period = periodsMap.get(evaluation.period_id)
+
+        return {
+          id: evaluation.id,
+          evaluatee_id: evaluation.evaluatee_id,
+          evaluatee_name: evaluatee?.name || '削除されたユーザー',
+          period_id: evaluation.period_id,
+          period_name: period?.name || '',
+          stage: evaluation.stage,
+          status: evaluation.status,
+          items: []
+        }
+      })
+
+      setSubmittedEvaluations(evaluationsWithNames)
+    } catch (error: any) {
+      console.error('提出済み評価の取得エラー:', error)
+    }
+  }, [user])
+
   useEffect(() => {
     if (user) {
       fetchAvailableEvaluations()
+      fetchSubmittedEvaluations()
     }
-  }, [user, fetchAvailableEvaluations])
+  }, [user, fetchAvailableEvaluations, fetchSubmittedEvaluations])
 
   const handleGradeChange = async (itemId: string, grade: string) => {
     if (!currentEvaluation) return
@@ -452,7 +521,8 @@ export default function EvaluationsPage() {
         .from('evaluations')
         .update({
           status: 'submitted',
-          submitted_at: new Date().toISOString()
+          submitted_at: new Date().toISOString(),
+          evaluator_id: user.id
         })
         .eq('id', currentEvaluation.id)
 
@@ -473,6 +543,52 @@ export default function EvaluationsPage() {
 
   const handleSaveDraft = async () => {
     alert('変更は自動保存されています')
+  }
+
+  const handleResubmit = async () => {
+    const supabase = supabaseRef.current
+    if (!currentEvaluation || !supabase || !user) return
+
+    // 全項目にグレードが選択されているか確認
+    const hasAllGrades = currentEvaluation.items.every(item => item.grade && item.grade !== '')
+    if (!hasAllGrades) {
+      alert('全ての評価項目にグレードを選択してください')
+      return
+    }
+
+    if (!confirm('評価を再提出してもよろしいですか？')) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+
+      const { error } = await supabase
+        .from('evaluations')
+        .update({
+          submitted_at: new Date().toISOString(),
+          evaluator_id: user.id
+        })
+        .eq('id', currentEvaluation.id)
+
+      if (error) throw error
+
+      alert('評価を再提出しました')
+
+      // リストを再取得
+      await fetchSubmittedEvaluations()
+      setCurrentEvaluation(null)
+      setIsEditMode(false)
+    } catch (error) {
+      console.error('再提出エラー:', error)
+      alert('評価の再提出に失敗しました')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const loadSubmittedEvaluation = async (evaluationId: string) => {
+    await loadEvaluation(evaluationId, true)
   }
 
   const getStageLabel = (stage: string) => {
@@ -507,7 +623,8 @@ export default function EvaluationsPage() {
     )
   }
 
-  if (availableEvaluations.length === 0) {
+  // 両方のリストが空の場合のみ表示
+  if (availableEvaluations.length === 0 && submittedEvaluations.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">評価実施</h1>
@@ -529,29 +646,76 @@ export default function EvaluationsPage() {
         <p className="text-gray-600 mt-2">本人評価 → 店長評価 → MG評価 → 最終評価</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>評価を選択</CardTitle>
-          <CardDescription>実施する評価を選択してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select
-            value={currentEvaluation?.id || ''}
-            onValueChange={loadEvaluation}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="評価を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableEvaluations.map(evaluation => (
-                <SelectItem key={evaluation.id} value={evaluation.id}>
-                  {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'pending' | 'submitted'); setCurrentEvaluation(null); setIsEditMode(false); }}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="pending">
+            未完了の評価 {availableEvaluations.length > 0 && `(${availableEvaluations.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="submitted">
+            提出済み評価 {submittedEvaluations.length > 0 && `(${submittedEvaluations.length})`}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending">
+          <Card>
+            <CardHeader>
+              <CardTitle>評価を選択</CardTitle>
+              <CardDescription>実施する評価を選択してください</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {availableEvaluations.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">未完了の評価はありません</p>
+              ) : (
+                <Select
+                  value={currentEvaluation?.id || ''}
+                  onValueChange={(id) => loadEvaluation(id, false)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="評価を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEvaluations.map(evaluation => (
+                      <SelectItem key={evaluation.id} value={evaluation.id}>
+                        {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="submitted">
+          <Card>
+            <CardHeader>
+              <CardTitle>提出済み評価を確認・編集</CardTitle>
+              <CardDescription>過去に提出した評価を閲覧・編集できます</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {submittedEvaluations.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">提出済みの評価はありません</p>
+              ) : (
+                <Select
+                  value={currentEvaluation?.id || ''}
+                  onValueChange={loadSubmittedEvaluation}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="評価を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {submittedEvaluations.map(evaluation => (
+                      <SelectItem key={evaluation.id} value={evaluation.id}>
+                        {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {currentEvaluation && (
         <Card>
@@ -563,8 +727,22 @@ export default function EvaluationsPage() {
                   {currentEvaluation.period_name} - {currentEvaluation.evaluatee_name}
                 </CardDescription>
               </div>
-              {getStageBadge(currentEvaluation.stage)}
+              <div className="flex gap-2">
+                {isEditMode && (
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                    編集中
+                  </Badge>
+                )}
+                {getStageBadge(currentEvaluation.stage)}
+              </div>
             </div>
+            {isEditMode && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  提出済みの評価を編集しています。変更後「評価を再提出」ボタンで保存してください。
+                </p>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="p-4 bg-blue-50 rounded-lg">
@@ -667,21 +845,46 @@ export default function EvaluationsPage() {
             )}
 
             <div className="flex gap-4">
-              <Button
-                onClick={handleSubmit}
-                size="lg"
-                className="flex-1"
-                disabled={isSaving}
-              >
-                評価を提出
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleSaveDraft}
-              >
-                下書き保存
-              </Button>
+              {isEditMode ? (
+                <>
+                  <Button
+                    onClick={handleResubmit}
+                    size="lg"
+                    className="flex-1"
+                    disabled={isSaving}
+                  >
+                    評価を再提出
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => {
+                      setCurrentEvaluation(null)
+                      setIsEditMode(false)
+                    }}
+                  >
+                    キャンセル
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleSubmit}
+                    size="lg"
+                    className="flex-1"
+                    disabled={isSaving}
+                  >
+                    評価を提出
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleSaveDraft}
+                  >
+                    下書き保存
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
