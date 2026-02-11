@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth, canViewAllEvaluations } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,7 @@ type EvaluationResult = {
 
 export default function ResultsPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [filter, setFilter] = useState<string>("all")
   const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [periodFilter, setPeriodFilter] = useState<string>("all")
@@ -442,6 +444,18 @@ export default function ResultsPage() {
 
   const canViewAll = canViewAllEvaluations(user.role)
 
+  // 編集可能かどうかの判定（MG・管理者は全て編集可能）
+  const canEdit = (evaluation: EvaluationResult) => {
+    if (user.role === 'admin') return true
+    if (user.role === 'mg') return true
+    return false
+  }
+
+  // 編集ページへ遷移
+  const handleEdit = (evaluationId: string) => {
+    router.push(`/dashboard/evaluations?edit=${evaluationId}`)
+  }
+
   if (error) {
     return (
       <div className="space-y-6">
@@ -606,16 +620,27 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                       </TableCell>
                       <TableCell>{evaluation.submittedAt}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedEvaluation(evaluation)
-                            setIsDetailDialogOpen(true)
-                          }}
-                        >
-                          詳細
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEvaluation(evaluation)
+                              setIsDetailDialogOpen(true)
+                            }}
+                          >
+                            詳細
+                          </Button>
+                          {canEdit(evaluation) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(evaluation.id)}
+                            >
+                              編集
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

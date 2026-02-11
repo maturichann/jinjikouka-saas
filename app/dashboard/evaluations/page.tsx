@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAuth, canEvaluateOthers } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,8 @@ type Evaluation = {
 
 export default function EvaluationsPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
   const [availableEvaluations, setAvailableEvaluations] = useState<Evaluation[]>([])
   const [submittedEvaluations, setSubmittedEvaluations] = useState<Evaluation[]>([])
   const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null)
@@ -54,6 +57,7 @@ export default function EvaluationsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending')
   const [isEditMode, setIsEditMode] = useState(false)
+  const [editIdProcessed, setEditIdProcessed] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
 
   if (!supabaseRef.current) {
@@ -423,6 +427,15 @@ export default function EvaluationsPage() {
       fetchSubmittedEvaluations()
     }
   }, [user, fetchAvailableEvaluations, fetchSubmittedEvaluations])
+
+  // URLパラメータから編集対象の評価を読み込む
+  useEffect(() => {
+    if (editId && !editIdProcessed && !isLoading) {
+      setActiveTab('submitted')
+      loadEvaluation(editId, true)
+      setEditIdProcessed(true)
+    }
+  }, [editId, editIdProcessed, isLoading, loadEvaluation])
 
   const handleGradeChange = async (itemId: string, grade: string) => {
     if (!currentEvaluation) return
