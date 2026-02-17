@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 
+type GradeKey = 'A' | 'B' | 'C' | 'D' | 'E'
+
 type EvaluationItem = {
   id: string
   name: string
@@ -35,6 +37,7 @@ type EvaluationItem = {
   grade_scores?: { A: number; B: number; C: number; D: number; E: number }
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
   hide_criteria_from_self?: boolean
+  enabled_grades?: GradeKey[]
 }
 
 type Template = {
@@ -62,7 +65,8 @@ export default function TemplatesPage() {
     category: "",
     grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
     grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
-    hide_criteria_from_self: false
+    hide_criteria_from_self: false,
+    enabled_grades: ['A', 'B', 'C', 'D', 'E'] as GradeKey[]
   })
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [editingItem, setEditingItem] = useState<EvaluationItem | null>(null)
@@ -160,7 +164,8 @@ export default function TemplatesPage() {
           grade_scores: newItem.grade_scores,
           grade_criteria: newItem.grade_criteria,
           order_index: currentItemsCount,
-          hide_criteria_from_self: newItem.hide_criteria_from_self
+          hide_criteria_from_self: newItem.hide_criteria_from_self,
+          enabled_grades: newItem.enabled_grades
         }])
         .select()
 
@@ -174,7 +179,8 @@ export default function TemplatesPage() {
         category: "",
         grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
         grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
-        hide_criteria_from_self: false
+        hide_criteria_from_self: false,
+        enabled_grades: ['A', 'B', 'C', 'D', 'E'] as GradeKey[]
       })
       setIsItemDialogOpen(false)
       fetchTemplates()
@@ -223,7 +229,8 @@ export default function TemplatesPage() {
           category: editingItem.category || null,
           grade_scores: editingItem.grade_scores,
           grade_criteria: editingItem.grade_criteria,
-          hide_criteria_from_self: editingItem.hide_criteria_from_self
+          hide_criteria_from_self: editingItem.hide_criteria_from_self,
+          enabled_grades: editingItem.enabled_grades || ['A', 'B', 'C', 'D', 'E']
         })
         .eq('id', editingItem.id)
 
@@ -483,42 +490,79 @@ export default function TemplatesPage() {
                         />
                       </div>
                       <div>
-                        <Label>グレード別配点と評価基準（5段階評価: A/B/C/D/E）</Label>
-                        <div className="space-y-3 mt-2">
-                          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
-                            <div key={grade} className="p-3 border rounded-lg bg-gray-50">
-                              <div className="flex items-center gap-3 mb-2">
-                                <Label htmlFor={`grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
-                                  {grade}評価
-                                </Label>
-                                <Input
-                                  id={`grade-${grade.toLowerCase()}`}
-                                  type="number"
-                                  step="0.5"
-                                  placeholder={String(5 - index)}
-                                  value={newItem.grade_scores?.[grade] || ""}
-                                  onChange={(e) => setNewItem({
-                                    ...newItem,
-                                    grade_scores: { ...newItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
-                                  })}
-                                  className="w-24"
-                                />
-                                <span className="text-sm text-gray-600">点</span>
-                              </div>
-                              <textarea
-                                placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
-                                value={newItem.grade_criteria?.[grade] || ""}
-                                onChange={(e) => setNewItem({
-                                  ...newItem,
-                                  grade_criteria: { ...newItem.grade_criteria!, [grade]: e.target.value }
-                                })}
-                                className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        <Label>使用するグレードを選択</Label>
+                        <div className="flex gap-4 mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
+                            <label key={grade} className="flex items-center gap-2 cursor-pointer">
+                              <Checkbox
+                                checked={newItem.enabled_grades.includes(grade)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setNewItem({
+                                      ...newItem,
+                                      enabled_grades: [...newItem.enabled_grades, grade].sort() as GradeKey[]
+                                    })
+                                  } else {
+                                    if (newItem.enabled_grades.length > 1) {
+                                      setNewItem({
+                                        ...newItem,
+                                        enabled_grades: newItem.enabled_grades.filter(g => g !== grade)
+                                      })
+                                    }
+                                  }
+                                }}
                               />
-                            </div>
+                              <span className="font-semibold">{grade}</span>
+                            </label>
                           ))}
                         </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {newItem.enabled_grades.length}段階評価: {newItem.enabled_grades.join(', ')}
+                        </p>
+                      </div>
+                      <div>
+                        <Label>グレード別配点と評価基準</Label>
+                        <div className="space-y-3 mt-2">
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => {
+                            const isEnabled = newItem.enabled_grades.includes(grade)
+                            return (
+                              <div key={grade} className={`p-3 border rounded-lg ${isEnabled ? 'bg-gray-50' : 'bg-gray-100 opacity-50'}`}>
+                                <div className="flex items-center gap-3 mb-2">
+                                  <Label htmlFor={`grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
+                                    {grade}評価
+                                  </Label>
+                                  <Input
+                                    id={`grade-${grade.toLowerCase()}`}
+                                    type="number"
+                                    step="0.5"
+                                    placeholder={String(5 - index)}
+                                    value={newItem.grade_scores?.[grade] || ""}
+                                    onChange={(e) => setNewItem({
+                                      ...newItem,
+                                      grade_scores: { ...newItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
+                                    })}
+                                    className="w-24"
+                                    disabled={!isEnabled}
+                                  />
+                                  <span className="text-sm text-gray-600">点</span>
+                                  {!isEnabled && <span className="text-xs text-gray-400">（無効）</span>}
+                                </div>
+                                <textarea
+                                  placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
+                                  value={newItem.grade_criteria?.[grade] || ""}
+                                  onChange={(e) => setNewItem({
+                                    ...newItem,
+                                    grade_criteria: { ...newItem.grade_criteria!, [grade]: e.target.value }
+                                  })}
+                                  className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                                  disabled={!isEnabled}
+                                />
+                              </div>
+                            )
+                          })}
+                        </div>
                         <p className="text-xs text-gray-500 mt-2">
-                          各グレード(A〜E)の点数と評価基準を設定してください
+                          有効なグレードの点数と評価基準を設定してください
                         </p>
                       </div>
                       <div className="flex items-center space-x-2 p-4 border rounded-lg bg-yellow-50 border-yellow-200">
@@ -574,13 +618,14 @@ export default function TemplatesPage() {
                             <TableCell>
                               <div className="text-xs">
                                 {item.grade_scores ? (
-                                  <>
-                                    <span>A:{item.grade_scores.A} </span>
-                                    <span>B:{item.grade_scores.B} </span>
-                                    <span>C:{item.grade_scores.C} </span>
-                                    <span>D:{item.grade_scores.D} </span>
-                                    <span>E:{item.grade_scores.E}</span>
-                                  </>
+                                  <div>
+                                    <div className="font-semibold text-blue-600 mb-1">
+                                      {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階
+                                    </div>
+                                    {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map(g => (
+                                      <span key={g}>{g}:{item.grade_scores![g as GradeKey]} </span>
+                                    ))}
+                                  </div>
                                 ) : '未設定'}
                               </div>
                             </TableCell>
@@ -713,42 +758,84 @@ export default function TemplatesPage() {
                 />
               </div>
               <div>
-                <Label>グレード別配点と評価基準（5段階評価: A/B/C/D/E）</Label>
+                <Label>使用するグレードを選択</Label>
+                <div className="flex gap-4 mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => {
+                    const enabledGrades = editingItem?.enabled_grades || ['A', 'B', 'C', 'D', 'E']
+                    return (
+                      <label key={grade} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={enabledGrades.includes(grade)}
+                          onCheckedChange={(checked) => {
+                            if (!editingItem) return
+                            if (checked) {
+                              setEditingItem({
+                                ...editingItem,
+                                enabled_grades: [...enabledGrades, grade].sort() as GradeKey[]
+                              })
+                            } else {
+                              if (enabledGrades.length > 1) {
+                                setEditingItem({
+                                  ...editingItem,
+                                  enabled_grades: enabledGrades.filter(g => g !== grade)
+                                })
+                              }
+                            }
+                          }}
+                        />
+                        <span className="font-semibold">{grade}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(editingItem?.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階評価: {(editingItem?.enabled_grades || ['A', 'B', 'C', 'D', 'E']).join(', ')}
+                </p>
+              </div>
+              <div>
+                <Label>グレード別配点と評価基準</Label>
                 <div className="space-y-3 mt-2">
-                  {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
-                    <div key={grade} className="p-3 border rounded-lg bg-gray-50">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Label htmlFor={`edit-grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
-                          {grade}評価
-                        </Label>
-                        <Input
-                          id={`edit-grade-${grade.toLowerCase()}`}
-                          type="number"
-                          step="0.5"
-                          placeholder={String(5 - index)}
-                          value={editingItem?.grade_scores?.[grade] || ""}
+                  {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => {
+                    const enabledGrades = editingItem?.enabled_grades || ['A', 'B', 'C', 'D', 'E']
+                    const isEnabled = enabledGrades.includes(grade)
+                    return (
+                      <div key={grade} className={`p-3 border rounded-lg ${isEnabled ? 'bg-gray-50' : 'bg-gray-100 opacity-50'}`}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <Label htmlFor={`edit-grade-${grade.toLowerCase()}`} className="font-semibold min-w-[60px]">
+                            {grade}評価
+                          </Label>
+                          <Input
+                            id={`edit-grade-${grade.toLowerCase()}`}
+                            type="number"
+                            step="0.5"
+                            placeholder={String(5 - index)}
+                            value={editingItem?.grade_scores?.[grade] || ""}
+                            onChange={(e) => editingItem && setEditingItem({
+                              ...editingItem,
+                              grade_scores: { ...editingItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
+                            })}
+                            className="w-24"
+                            disabled={!isEnabled}
+                          />
+                          <span className="text-sm text-gray-600">点</span>
+                          {!isEnabled && <span className="text-xs text-gray-400">（無効）</span>}
+                        </div>
+                        <textarea
+                          placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
+                          value={editingItem?.grade_criteria?.[grade] || ""}
                           onChange={(e) => editingItem && setEditingItem({
                             ...editingItem,
-                            grade_scores: { ...editingItem.grade_scores!, [grade]: parseFloat(e.target.value) || 0 }
+                            grade_criteria: { ...editingItem.grade_criteria!, [grade]: e.target.value }
                           })}
-                          className="w-24"
+                          className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                          disabled={!isEnabled}
                         />
-                        <span className="text-sm text-gray-600">点</span>
                       </div>
-                      <textarea
-                        placeholder={`${grade}評価の基準を入力（例: 期待を大きく上回る）`}
-                        value={editingItem?.grade_criteria?.[grade] || ""}
-                        onChange={(e) => editingItem && setEditingItem({
-                          ...editingItem,
-                          grade_criteria: { ...editingItem.grade_criteria!, [grade]: e.target.value }
-                        })}
-                        className="flex min-h-[60px] w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  各グレード(A〜E)の点数と評価基準を設定してください
+                  有効なグレードの点数と評価基準を設定してください
                 </p>
               </div>
               <div className="flex items-center space-x-2 p-4 border rounded-lg bg-yellow-50 border-yellow-200">

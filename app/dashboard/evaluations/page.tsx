@@ -20,6 +20,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 
+type GradeKey = 'A' | 'B' | 'C' | 'D' | 'E'
+
 type EvaluationItem = {
   id: string
   name: string
@@ -32,6 +34,7 @@ type EvaluationItem = {
   grade_scores?: { A: number; B: number; C: number; D: number; E: number }
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
   hide_criteria_from_self?: boolean
+  enabled_grades?: GradeKey[]
 }
 
 type Evaluation = {
@@ -294,7 +297,8 @@ export default function EvaluationsPage() {
           grade: existingScore?.grade || '',
           grade_scores: item.grade_scores || { A: 5, B: 4, C: 3, D: 2, E: 1 },
           grade_criteria: item.grade_criteria || { A: '', B: '', C: '', D: '', E: '' },
-          hide_criteria_from_self: item.hide_criteria_from_self || false
+          hide_criteria_from_self: item.hide_criteria_from_self || false,
+          enabled_grades: item.enabled_grades || ['A', 'B', 'C', 'D', 'E']
         }
       })
 
@@ -782,13 +786,15 @@ export default function EvaluationsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="mb-3 block">評価グレード</Label>
+                    <Label className="mb-3 block">
+                      評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
+                    </Label>
                     <RadioGroup
                       value={item.grade || undefined}
                       onValueChange={(value) => handleGradeChange(item.id, value)}
                       className="space-y-3"
                     >
-                      {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
+                      {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
                         <div
                           key={grade}
                           className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -797,12 +803,12 @@ export default function EvaluationsPage() {
                           <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1 pointer-events-none" />
                           <Label htmlFor={`${item.id}-${grade}`} className="flex-1 cursor-pointer pointer-events-none">
                             <div className="font-semibold text-base">
-                              {grade}評価 - {item.grade_scores?.[grade] || 0}点
+                              {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
                             </div>
                             {/* 評価基準はMG以上（mg, final）のみ表示 */}
-                            {item.grade_criteria?.[grade] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
+                            {item.grade_criteria?.[grade as GradeKey] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
                               <div className="text-sm text-gray-600 mt-1">
-                                {item.grade_criteria[grade]}
+                                {item.grade_criteria[grade as GradeKey]}
                               </div>
                             )}
                           </Label>
