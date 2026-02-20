@@ -525,13 +525,13 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
         <TabsContent value="list" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                 <div>
                   <CardTitle>評価一覧</CardTitle>
                   <CardDescription>閲覧権限に基づいた評価の一覧</CardDescription>
                 </div>
                 <Select value={filter} onValueChange={setFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="フィルター" />
                   </SelectTrigger>
                   <SelectContent>
@@ -543,7 +543,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <label className="text-sm font-medium mb-1 block">部署</label>
                   <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
@@ -587,32 +587,33 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">アクション</label>
-                  <Button onClick={handleExportFilteredPDF} className="w-full">
-                    フィルター後のPDFエクスポート
+                  <Button onClick={handleExportFilteredPDF} className="w-full" size="sm">
+                    PDFエクスポート
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>評価対象者</TableHead>
-                    <TableHead>部署</TableHead>
-                    <TableHead>評価期間</TableHead>
-                    <TableHead>評価段階</TableHead>
-                    <TableHead>ステータス</TableHead>
-                    <TableHead>総合スコア</TableHead>
-                    <TableHead>提出日</TableHead>
+                    <TableHead className="hidden sm:table-cell">部署</TableHead>
+                    <TableHead className="hidden md:table-cell">評価期間</TableHead>
+                    <TableHead>段階</TableHead>
+                    <TableHead>状態</TableHead>
+                    <TableHead>スコア</TableHead>
+                    <TableHead className="hidden sm:table-cell">提出日</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredEvaluations.map((evaluation) => (
                     <TableRow key={evaluation.id}>
-                      <TableCell className="font-medium">{evaluation.evaluatee}</TableCell>
-                      <TableCell>{evaluation.department}</TableCell>
-                      <TableCell>{evaluation.period}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{evaluation.evaluatee}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{evaluation.department}</TableCell>
+                      <TableCell className="hidden md:table-cell">{evaluation.period}</TableCell>
                       <TableCell>{getStageBadge(evaluation.stage)}</TableCell>
                       <TableCell>{getStatusBadge(evaluation.status)}</TableCell>
                       <TableCell>
@@ -622,9 +623,9 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <span className="text-gray-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell>{evaluation.submittedAt}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{evaluation.submittedAt}</TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -650,6 +651,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -657,13 +659,13 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
         <TabsContent value="unified" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
                   <CardTitle>一元管理ビュー</CardTitle>
                   <CardDescription>同じ人の評価を並べて比較</CardDescription>
                 </div>
-                <Button onClick={handleExportAllPDF}>
-                  全員のPDFをエクスポート
+                <Button onClick={handleExportAllPDF} size="sm">
+                  全員PDF出力
                 </Button>
               </div>
             </CardHeader>
@@ -678,28 +680,30 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 return (
                   <Card key={person} className="border-2">
                     <CardHeader className="bg-gray-50">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <div>
                           <CardTitle>{person}</CardTitle>
                           <CardDescription>
                             {personEvals[0]?.department} - {personEvals[0]?.period}
                           </CardDescription>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" onClick={() => handleExportPDF(person)}>
-                            PDFエクスポート
+                        <div className="flex gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" onClick={() => handleExportPDF(person)}>
+                            PDF
                           </Button>
                           <Button
                             variant="outline"
+                            size="sm"
                             onClick={() => {
                               setComparisonPerson(person)
                               setIsComparisonDialogOpen(true)
                             }}
                           >
-                            比較表示
+                            比較
                           </Button>
                           <Button
                             variant="outline"
+                            size="sm"
                             onClick={() => {
                               const evals = getPersonEvaluations(person)
                               if (evals.length > 0) {
@@ -708,13 +712,13 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               }
                             }}
                           >
-                            詳細を見る
+                            詳細
                           </Button>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {/* 本人評価 */}
                         <Card>
                           <CardHeader>
