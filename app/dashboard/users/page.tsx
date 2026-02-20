@@ -290,10 +290,10 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">ユーザー管理</h1>
-          <p className="text-gray-600 mt-2">社員の登録・編集・削除</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">ユーザー管理</h1>
+          <p className="text-gray-600 mt-1 text-sm">社員の登録・編集・削除</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open)
@@ -431,14 +431,14 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
             <div>
               <CardTitle>ユーザー一覧</CardTitle>
-              <CardDescription>登録されているユーザーの一覧（表示: {filteredUsers.length}人 / 全体: {users.length}人）</CardDescription>
+              <CardDescription>表示: {filteredUsers.length}人 / 全体: {users.length}人</CardDescription>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <Label htmlFor="department-filter" className="text-sm">店舗:</Label>
+                <Label htmlFor="department-filter" className="text-sm whitespace-nowrap">店舗:</Label>
                 <select
                   id="department-filter"
                   className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
@@ -452,7 +452,7 @@ export default function UsersPage() {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="status-filter" className="text-sm">表示:</Label>
+                <Label htmlFor="status-filter" className="text-sm whitespace-nowrap">表示:</Label>
                 <select
                   id="status-filter"
                   className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
@@ -469,68 +469,78 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>名前</TableHead>
-                <TableHead>スタッフコード</TableHead>
-                <TableHead>部署</TableHead>
-                <TableHead>役割</TableHead>
-                <TableHead>ランク</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead>パスワード</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((u) => (
-                <TableRow key={u.id} className={u.status === 'retired' ? 'opacity-50' : ''}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell>{u.staff_code}</TableCell>
-                  <TableCell>{u.department}</TableCell>
-                  <TableCell>{getRoleBadge(u.role)}</TableCell>
-                  <TableCell>{getRankBadge(u.rank)}</TableCell>
-                  <TableCell>{getStatusBadge(u.status)}</TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {u.password_hash}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingUser(u)
-                          setIsEditDialogOpen(true)
-                        }}
-                      >
-                        編集
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setResetPasswordUserId(u.id)
-                          setIsResetPasswordDialogOpen(true)
-                        }}
-                      >
-                        パスワード再発行
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteUser(u.id)}
-                      >
-                        削除
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>名前</TableHead>
+                  <TableHead className="hidden sm:table-cell">コード</TableHead>
+                  <TableHead className="hidden md:table-cell">部署</TableHead>
+                  <TableHead>役割</TableHead>
+                  <TableHead className="hidden sm:table-cell">ランク</TableHead>
+                  <TableHead className="hidden lg:table-cell">ステータス</TableHead>
+                  <TableHead className="hidden lg:table-cell">パスワード</TableHead>
+                  <TableHead>操作</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((u) => (
+                  <TableRow key={u.id} className={u.status === 'retired' ? 'opacity-50' : ''}>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium">{u.name}</span>
+                        <span className="sm:hidden text-xs text-gray-500 block">{u.staff_code} / {u.department}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{u.staff_code}</TableCell>
+                    <TableCell className="hidden md:table-cell">{u.department}</TableCell>
+                    <TableCell>{getRoleBadge(u.role)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{getRankBadge(u.rank)}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{getStatusBadge(u.status)}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        {u.password_hash}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            setEditingUser(u)
+                            setIsEditDialogOpen(true)
+                          }}
+                        >
+                          編集
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2 hidden sm:inline-flex"
+                          onClick={() => {
+                            setResetPasswordUserId(u.id)
+                            setIsResetPasswordDialogOpen(true)
+                          }}
+                        >
+                          PW再発行
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => handleDeleteUser(u.id)}
+                        >
+                          削除
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
