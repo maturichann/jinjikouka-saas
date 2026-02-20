@@ -378,6 +378,14 @@ export default function ResultsPage() {
       filtered = filtered.filter(e => e.status === "pending")
     }
 
+    // 名前順 → 評価段階順にソート
+    const stageOrder: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+    filtered.sort((a, b) => {
+      const nameCompare = a.evaluatee.localeCompare(b.evaluatee, 'ja')
+      if (nameCompare !== 0) return nameCompare
+      return (stageOrder[a.stage] || 99) - (stageOrder[b.stage] || 99)
+    })
+
     return filtered
   }, [evaluations, user, filter, departmentFilter, periodFilter, statusFilter])
 
