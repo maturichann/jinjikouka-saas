@@ -62,6 +62,7 @@ export default function EvaluationsPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [editIdProcessed, setEditIdProcessed] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  const commentTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   if (!supabaseRef.current) {
     supabaseRef.current = createClient()
@@ -410,9 +411,13 @@ export default function EvaluationsPage() {
     // グレードに対応する点数を取得
     const score = item.grade_scores?.[grade as keyof typeof item.grade_scores] || 0
 
-    // 状態を更新（関数型の更新を使用して競合を防ぐ）
+    // 最新のコメントを取得するために関数型の更新を使用
+    let latestComment = ''
+
     setCurrentEvaluation(prev => {
       if (!prev) return prev
+      const prevItem = prev.items.find(i => i.id === itemId)
+      latestComment = prevItem?.comment || ''
 
       const updatedItems = prev.items.map(i =>
         i.id === itemId ? { ...i, grade, score } : i
@@ -425,27 +430,38 @@ export default function EvaluationsPage() {
       }
     })
 
-    // 自動保存
-    await saveScore(itemId, score, item.comment || '', grade)
+    // 自動保存（最新のコメントを使用）
+    await saveScore(itemId, score, latestComment, grade)
   }
 
-  const handleCommentChange = async (itemId: string, comment: string) => {
+  const handleCommentChange = (itemId: string, comment: string) => {
     if (!currentEvaluation) return
 
-    const item = currentEvaluation.items.find(i => i.id === itemId)
-    if (!item) return
+    // 最新のグレードとスコアを取得するために関数型の更新を使用
+    let latestGrade = ''
+    let latestScore = 0
 
-    const updatedItems = currentEvaluation.items.map(i =>
-      i.id === itemId ? { ...i, comment } : i
-    )
+    setCurrentEvaluation(prev => {
+      if (!prev) return prev
+      const prevItem = prev.items.find(i => i.id === itemId)
+      latestGrade = prevItem?.grade || ''
+      latestScore = prevItem?.score || 0
 
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      items: updatedItems
+      return {
+        ...prev,
+        items: prev.items.map(i =>
+          i.id === itemId ? { ...i, comment } : i
+        )
+      }
     })
 
-    // 自動保存
-    await saveScore(itemId, item.score || 0, comment, item.grade || '')
+    // デバウンス保存（高速タイピング時の競合を防止）
+    if (commentTimerRef.current[itemId]) {
+      clearTimeout(commentTimerRef.current[itemId])
+    }
+    commentTimerRef.current[itemId] = setTimeout(async () => {
+      await saveScore(itemId, latestScore, comment, latestGrade)
+    }, 500)
   }
 
   const handleOverallCommentChange = async (comment: string) => {
@@ -535,6 +551,28 @@ export default function EvaluationsPage() {
     try {
       setIsSaving(true)
 
+      // デバウンス中の保存をキャンセルし、全スコアを確実に保存
+      Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
+      commentTimerRef.current = {}
+
+      await Promise.all(
+        currentEvaluation.items
+          .filter(item => item.grade)
+          .map(item =>
+            supabase
+              .from('evaluation_scores')
+              .upsert({
+                evaluation_id: currentEvaluation.id,
+                item_id: item.id,
+                score: item.score,
+                comment: item.comment,
+                grade: item.grade
+              }, {
+                onConflict: 'evaluation_id,item_id'
+              })
+          )
+      )
+
       const { error } = await supabase
         .from('evaluations')
         .update({
@@ -580,6 +618,28 @@ export default function EvaluationsPage() {
 
     try {
       setIsSaving(true)
+
+      // デバウンス中の保存をキャンセルし、全スコアを確実に保存
+      Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
+      commentTimerRef.current = {}
+
+      await Promise.all(
+        currentEvaluation.items
+          .filter(item => item.grade)
+          .map(item =>
+            supabase
+              .from('evaluation_scores')
+              .upsert({
+                evaluation_id: currentEvaluation.id,
+                item_id: item.id,
+                score: item.score,
+                comment: item.comment,
+                grade: item.grade
+              }, {
+                onConflict: 'evaluation_id,item_id'
+              })
+          )
+      )
 
       const { error } = await supabase
         .from('evaluations')
