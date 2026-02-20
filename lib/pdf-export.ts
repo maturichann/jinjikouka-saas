@@ -150,10 +150,54 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
 }
 
 export async function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFData[]) {
-  const itemsHTML = evaluationsData.map((data, dataIndex) => {
-    // 各対象者の評価段階ごとのHTMLを生成
-    const evaluationsHTML = data.evaluations.map((evaluation, evalIndex) => {
-      // 評価項目の表を生成（50項目対応で超コンパクト）
+  const doc = new jsPDF('p', 'mm', 'a4')
+  await (document as any).fonts?.ready
+
+  let isFirstPage = true
+
+  for (const data of evaluationsData) {
+    // 各対象者の表紙ページ
+    const headerHTML = `
+      <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
+        <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
+          評価レポート
+        </h1>
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #3b82f6;">
+          <p style="margin: 8px 0; font-size: 15px;"><strong>評価対象者:</strong> ${data.evaluatee}</p>
+          <p style="margin: 8px 0; font-size: 15px;"><strong>部署:</strong> ${data.department}</p>
+          <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.period}</p>
+        </div>
+        <h2 style="font-size: 20px; margin: 25px 0 15px; color: #1e40af; border-left: 4px solid #22c55e; padding-left: 12px;">
+          サマリー
+        </h2>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background: #22c55e; color: white;">
+              <th style="padding: 10px; border: 1px solid #ddd;">評価段階</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">総合スコア</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">ステータス</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">提出日</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.evaluations.map((e, i) => `
+              <tr style="background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
+                <td style="padding: 10px; border: 1px solid #ddd;">${e.stage}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${e.totalScore.toFixed(1)}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${e.submittedAt}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+
+    await addPageFromHTML(doc, headerHTML, !isFirstPage)
+    isFirstPage = false
+
+    // 各評価段階を1ページずつ追加
+    for (const evaluation of data.evaluations) {
       const itemsTableHTML = evaluation.items && evaluation.items.length > 0 ? `
         <div style="margin-top: 5px;">
           <h4 style="font-size: 10px; margin-bottom: 4px; color: #1e40af; border-bottom: 1px solid #3b82f6; padding-bottom: 2px;">評価項目詳細</h4>
@@ -209,8 +253,8 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
         </div>
       ` : ''
 
-      return `
-        <div style="page-break-before: ${evalIndex > 0 || dataIndex > 0 ? 'always' : 'auto'}; page-break-after: always;">
+      const evaluationHTML = `
+        <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
           <div style="background: #3b82f6; color: white; padding: 10px; border-radius: 8px 8px 0 0; margin-bottom: 8px;">
             <h3 style="margin: 0; font-size: 16px;">${evaluation.stage} - 総合スコア: ${evaluation.totalScore.toFixed(1)}</h3>
           </div>
@@ -222,22 +266,10 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
           ${overallCommentHTML}
         </div>
       `
-    }).join('')
 
-    return evaluationsHTML
-  }).join('')
-
-  const htmlContent = `
-    <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 30px; max-width: 800px;">
-      <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; color: #1e40af;">
-        評価レポート - 複数対象者
-      </h1>
-      ${itemsHTML}
-    </div>
-  `
-
-  // HTMLからPDFを生成
-  const doc = await createPDFFromHTML(htmlContent)
+      await addPageFromHTML(doc, evaluationHTML, true)
+    }
+  }
 
   const fileName = `evaluations_report_${Date.now()}.pdf`
   doc.save(fileName)
