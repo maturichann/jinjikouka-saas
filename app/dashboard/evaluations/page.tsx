@@ -855,13 +855,13 @@ export default function EvaluationsPage() {
                       className="space-y-3"
                     >
                       {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
-                        <div
+                        <Label
                           key={grade}
+                          htmlFor={`${item.id}-${grade}`}
                           className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
-                          onClick={() => handleGradeChange(item.id, grade)}
                         >
-                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1 pointer-events-none" />
-                          <Label htmlFor={`${item.id}-${grade}`} className="flex-1 cursor-pointer pointer-events-none">
+                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
+                          <div className="flex-1">
                             <div className="font-semibold text-base">
                               {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
                             </div>
@@ -871,8 +871,8 @@ export default function EvaluationsPage() {
                                 {item.grade_criteria[grade as GradeKey]}
                               </div>
                             )}
-                          </Label>
-                        </div>
+                          </div>
+                        </Label>
                       ))}
                     </RadioGroup>
                     {item.grade && (
