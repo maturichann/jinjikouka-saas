@@ -37,7 +37,7 @@ const navItems = [
     adminOnly: true,
   },
   {
-    title: "📖 使い方ガイド",
+    title: "使い方ガイド",
     href: "/dashboard/guide",
   },
 ]
@@ -47,7 +47,7 @@ export function DashboardNav() {
   const { user } = useAuth()
 
   return (
-    <nav className="flex flex-col gap-2">
+    <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
         // 管理者専用メニューは管理者のみ表示
         if (item.adminOnly && user?.role !== 'admin') {
@@ -58,7 +58,7 @@ export function DashboardNav() {
           <Link key={item.href} href={item.href}>
             <Button
               variant={pathname === item.href ? "default" : "ghost"}
-              className="w-full justify-start"
+              className="w-full justify-start h-10 text-sm"
             >
               {item.title}
             </Button>
