@@ -354,7 +354,11 @@ export default function ResultsPage() {
     if (filter === "my-evaluations") {
       filtered = filtered.filter(e => e.evaluatee === user.name)
     } else if (filter === "my-department") {
-      filtered = filtered.filter(e => e.department === user.department)
+      if (user.role === 'mg' && user.managed_departments?.length > 0) {
+        filtered = filtered.filter(e => user.managed_departments.includes(e.department))
+      } else {
+        filtered = filtered.filter(e => e.department === user.department)
+      }
     }
 
     // 部署フィルター
@@ -511,7 +515,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
         )}
         {user.role === 'mg' && (
           <div className="mt-2 p-3 bg-green-50 text-green-800 text-sm rounded">
-            全ての評価を閲覧できます
+            管轄店舗の評価を閲覧できます（{user.managed_departments?.join('、') || '未設定'}）
           </div>
         )}
       </div>
@@ -538,7 +542,9 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                     {canViewAll && <SelectItem value="all">全ての評価</SelectItem>}
                     <SelectItem value="my-evaluations">自分の評価</SelectItem>
                     {(canViewAll || user.role === 'manager') && (
-                      <SelectItem value="my-department">自部署の評価</SelectItem>
+                      <SelectItem value="my-department">
+                        {user.role === 'mg' ? '管轄店舗の評価' : '自部署の評価'}
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
