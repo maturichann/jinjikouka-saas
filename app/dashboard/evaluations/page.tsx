@@ -63,6 +63,7 @@ export default function EvaluationsPage() {
   const [editIdProcessed, setEditIdProcessed] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const commentTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const currentEvaluationRef = useRef<Evaluation | null>(null)
 
   if (!supabaseRef.current) {
     supabaseRef.current = createClient()
@@ -386,6 +387,11 @@ export default function EvaluationsPage() {
     }
   }, [user])
 
+  // currentEvaluationRefを常に最新に同期
+  useEffect(() => {
+    currentEvaluationRef.current = currentEvaluation
+  }, [currentEvaluation])
+
   useEffect(() => {
     if (user) {
       fetchAvailableEvaluations()
@@ -403,13 +409,19 @@ export default function EvaluationsPage() {
   }, [editId, editIdProcessed, isLoading, loadEvaluation])
 
   const handleGradeChange = async (itemId: string, grade: string) => {
-    if (!currentEvaluation) return
+    if (!currentEvaluationRef.current) return
 
-    const item = currentEvaluation.items.find(i => i.id === itemId)
+    const item = currentEvaluationRef.current.items.find(i => i.id === itemId)
     if (!item) return
 
     // グレードに対応する点数を取得
     const score = item.grade_scores?.[grade as keyof typeof item.grade_scores] || 0
+
+    // 同じ項目のコメントデバウンスタイマーをクリア（古いデータでの上書きを防止）
+    if (commentTimerRef.current[itemId]) {
+      clearTimeout(commentTimerRef.current[itemId])
+      delete commentTimerRef.current[itemId]
+    }
 
     // 最新のコメントを取得するために関数型の更新を使用
     let latestComment = ''
@@ -435,18 +447,10 @@ export default function EvaluationsPage() {
   }
 
   const handleCommentChange = (itemId: string, comment: string) => {
-    if (!currentEvaluation) return
-
-    // 最新のグレードとスコアを取得するために関数型の更新を使用
-    let latestGrade = ''
-    let latestScore = 0
+    if (!currentEvaluationRef.current) return
 
     setCurrentEvaluation(prev => {
       if (!prev) return prev
-      const prevItem = prev.items.find(i => i.id === itemId)
-      latestGrade = prevItem?.grade || ''
-      latestScore = prevItem?.score || 0
-
       return {
         ...prev,
         items: prev.items.map(i =>
@@ -455,25 +459,37 @@ export default function EvaluationsPage() {
       }
     })
 
-    // デバウンス保存（高速タイピング時の競合を防止）
+    // デバウンス保存（タイマー発火時にrefから最新のグレード/スコアを読む）
     if (commentTimerRef.current[itemId]) {
       clearTimeout(commentTimerRef.current[itemId])
     }
     commentTimerRef.current[itemId] = setTimeout(async () => {
+      const latest = currentEvaluationRef.current
+      if (!latest) return
+      const latestItem = latest.items.find(i => i.id === itemId)
+      const latestGrade = latestItem?.grade || ''
+      const latestScore = latestItem?.score || 0
       await saveScore(itemId, latestScore, comment, latestGrade)
     }, 500)
   }
 
-  const handleOverallCommentChange = async (comment: string) => {
-    if (!currentEvaluation) return
+  const overallCommentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      overall_comment: comment
+  const handleOverallCommentChange = (comment: string) => {
+    if (!currentEvaluationRef.current) return
+
+    setCurrentEvaluation(prev => {
+      if (!prev) return prev
+      return { ...prev, overall_comment: comment }
     })
 
-    // 自動保存
-    await saveOverallComment(comment)
+    // デバウンス保存
+    if (overallCommentTimerRef.current) {
+      clearTimeout(overallCommentTimerRef.current)
+    }
+    overallCommentTimerRef.current = setTimeout(async () => {
+      await saveOverallComment(comment)
+    }, 500)
   }
 
   const saveOverallComment = async (comment: string) => {
@@ -494,15 +510,16 @@ export default function EvaluationsPage() {
 
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
     const supabase = supabaseRef.current
+    const evalRef = currentEvaluationRef.current
     // グレードが選択されていない場合のみ保存しない
-    if (!currentEvaluation || !grade || !supabase) return
+    if (!evalRef || !grade || !supabase) return
 
     try {
       // スコアを保存
       const { error: scoreError } = await supabase
         .from('evaluation_scores')
         .upsert({
-          evaluation_id: currentEvaluation.id,
+          evaluation_id: evalRef.id,
           item_id: itemId,
           score,
           comment,
@@ -514,11 +531,11 @@ export default function EvaluationsPage() {
       if (scoreError) throw scoreError
 
       // ステータスを in_progress に更新（まだ pending の場合）
-      if (currentEvaluation.status === 'pending') {
+      if (evalRef.status === 'pending') {
         await supabase
           .from('evaluations')
           .update({ status: 'in_progress' })
-          .eq('id', currentEvaluation.id)
+          .eq('id', evalRef.id)
       }
     } catch (error) {
       console.error('スコア保存エラー:', error)
@@ -535,10 +552,11 @@ export default function EvaluationsPage() {
 
   const handleSubmit = async () => {
     const supabase = supabaseRef.current
-    if (!currentEvaluation || !supabase) return
+    const latestEval = currentEvaluationRef.current
+    if (!latestEval || !supabase) return
 
     // 全項目にグレードが選択されているか確認
-    const hasAllGrades = currentEvaluation.items.every(item => item.grade && item.grade !== '')
+    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '')
     if (!hasAllGrades) {
       alert('全ての評価項目にグレードを選択してください')
       return
@@ -554,15 +572,23 @@ export default function EvaluationsPage() {
       // デバウンス中の保存をキャンセルし、全スコアを確実に保存
       Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
       commentTimerRef.current = {}
+      if (overallCommentTimerRef.current) {
+        clearTimeout(overallCommentTimerRef.current)
+        overallCommentTimerRef.current = null
+      }
+
+      // refから最新の状態を再取得して保存
+      const evalToSave = currentEvaluationRef.current
+      if (!evalToSave) return
 
       await Promise.all(
-        currentEvaluation.items
+        evalToSave.items
           .filter(item => item.grade)
           .map(item =>
             supabase
               .from('evaluation_scores')
               .upsert({
-                evaluation_id: currentEvaluation.id,
+                evaluation_id: evalToSave.id,
                 item_id: item.id,
                 score: item.score,
                 comment: item.comment,
@@ -573,6 +599,14 @@ export default function EvaluationsPage() {
           )
       )
 
+      // 総評コメントも保存
+      if (evalToSave.overall_comment !== undefined) {
+        await supabase
+          .from('evaluations')
+          .update({ overall_comment: evalToSave.overall_comment })
+          .eq('id', evalToSave.id)
+      }
+
       const { error } = await supabase
         .from('evaluations')
         .update({
@@ -580,7 +614,7 @@ export default function EvaluationsPage() {
           submitted_at: new Date().toISOString(),
           evaluator_id: user!.id
         })
-        .eq('id', currentEvaluation.id)
+        .eq('id', evalToSave.id)
 
       if (error) throw error
 
@@ -603,10 +637,11 @@ export default function EvaluationsPage() {
 
   const handleResubmit = async () => {
     const supabase = supabaseRef.current
-    if (!currentEvaluation || !supabase || !user) return
+    const latestEval = currentEvaluationRef.current
+    if (!latestEval || !supabase || !user) return
 
     // 全項目にグレードが選択されているか確認
-    const hasAllGrades = currentEvaluation.items.every(item => item.grade && item.grade !== '')
+    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '')
     if (!hasAllGrades) {
       alert('全ての評価項目にグレードを選択してください')
       return
@@ -622,15 +657,23 @@ export default function EvaluationsPage() {
       // デバウンス中の保存をキャンセルし、全スコアを確実に保存
       Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
       commentTimerRef.current = {}
+      if (overallCommentTimerRef.current) {
+        clearTimeout(overallCommentTimerRef.current)
+        overallCommentTimerRef.current = null
+      }
+
+      // refから最新の状態を再取得して保存
+      const evalToSave = currentEvaluationRef.current
+      if (!evalToSave) return
 
       await Promise.all(
-        currentEvaluation.items
+        evalToSave.items
           .filter(item => item.grade)
           .map(item =>
             supabase
               .from('evaluation_scores')
               .upsert({
-                evaluation_id: currentEvaluation.id,
+                evaluation_id: evalToSave.id,
                 item_id: item.id,
                 score: item.score,
                 comment: item.comment,
@@ -641,13 +684,21 @@ export default function EvaluationsPage() {
           )
       )
 
+      // 総評コメントも保存
+      if (evalToSave.overall_comment !== undefined) {
+        await supabase
+          .from('evaluations')
+          .update({ overall_comment: evalToSave.overall_comment })
+          .eq('id', evalToSave.id)
+      }
+
       const { error } = await supabase
         .from('evaluations')
         .update({
           submitted_at: new Date().toISOString(),
           evaluator_id: user!.id
         })
-        .eq('id', currentEvaluation.id)
+        .eq('id', evalToSave.id)
 
       if (error) throw error
 
