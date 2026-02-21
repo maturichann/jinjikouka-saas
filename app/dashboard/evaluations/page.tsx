@@ -311,7 +311,8 @@ export default function EvaluationsPage() {
         period_name: period.name,
         stage: evalData.stage,
         status: evalData.status,
-        items: itemsWithScores
+        items: itemsWithScores,
+        overall_comment: evalData.overall_comment || ''
       })
     } catch (error) {
       console.error('評価の読み込みエラー:', error)
@@ -467,9 +468,12 @@ export default function EvaluationsPage() {
   const handleOverallCommentChange = async (comment: string) => {
     if (!currentEvaluation) return
 
-    setCurrentEvaluation({
-      ...currentEvaluation,
-      overall_comment: comment
+    setCurrentEvaluation(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        overall_comment: comment
+      }
     })
 
     // 自動保存
