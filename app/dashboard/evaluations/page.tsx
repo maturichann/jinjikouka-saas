@@ -537,6 +537,33 @@ export default function EvaluationsPage() {
     return totalScore.toFixed(1)
   }
 
+
+  const persistEvaluationScores = async (evaluation: Evaluation) => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    const scoreResults = await Promise.all(
+      evaluation.items
+        .filter(item => item.grade)
+        .map(item =>
+          supabase
+            .from('evaluation_scores')
+            .upsert({
+              evaluation_id: evaluation.id,
+              item_id: item.id,
+              score: item.score,
+              comment: item.comment,
+              grade: item.grade
+            }, {
+              onConflict: 'evaluation_id,item_id'
+            })
+        )
+    )
+
+    const scoreError = scoreResults.find(result => result.error)?.error
+    if (scoreError) throw scoreError
+  }
+
   const handleSubmit = async () => {
     const supabase = supabaseRef.current
     if (!currentEvaluation || !supabase) return
@@ -559,23 +586,7 @@ export default function EvaluationsPage() {
       Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
       commentTimerRef.current = {}
 
-      await Promise.all(
-        currentEvaluation.items
-          .filter(item => item.grade)
-          .map(item =>
-            supabase
-              .from('evaluation_scores')
-              .upsert({
-                evaluation_id: currentEvaluation.id,
-                item_id: item.id,
-                score: item.score,
-                comment: item.comment,
-                grade: item.grade
-              }, {
-                onConflict: 'evaluation_id,item_id'
-              })
-          )
-      )
+      await persistEvaluationScores(currentEvaluation)
 
       const { error } = await supabase
         .from('evaluations')
@@ -627,23 +638,7 @@ export default function EvaluationsPage() {
       Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
       commentTimerRef.current = {}
 
-      await Promise.all(
-        currentEvaluation.items
-          .filter(item => item.grade)
-          .map(item =>
-            supabase
-              .from('evaluation_scores')
-              .upsert({
-                evaluation_id: currentEvaluation.id,
-                item_id: item.id,
-                score: item.score,
-                comment: item.comment,
-                grade: item.grade
-              }, {
-                onConflict: 'evaluation_id,item_id'
-              })
-          )
-      )
+      await persistEvaluationScores(currentEvaluation)
 
       const { error } = await supabase
         .from('evaluations')
