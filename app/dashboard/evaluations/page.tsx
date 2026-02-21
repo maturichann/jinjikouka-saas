@@ -312,7 +312,8 @@ export default function EvaluationsPage() {
         period_name: period.name,
         stage: evalData.stage,
         status: evalData.status,
-        items: itemsWithScores
+        items: itemsWithScores,
+        overall_comment: evalData.overall_comment || ''
       })
     } catch (error) {
       console.error('評価の読み込みエラー:', error)
@@ -387,10 +388,8 @@ export default function EvaluationsPage() {
     }
   }, [user])
 
-  // currentEvaluationRefを常に最新に同期
-  useEffect(() => {
-    currentEvaluationRef.current = currentEvaluation
-  }, [currentEvaluation])
+  // currentEvaluationRefをレンダリング時に同期（useEffectでは遅延する）
+  currentEvaluationRef.current = currentEvaluation
 
   useEffect(() => {
     if (user) {
@@ -528,7 +527,16 @@ export default function EvaluationsPage() {
           onConflict: 'evaluation_id,item_id'
         })
 
-      if (scoreError) throw scoreError
+      // upsertエラーの場合はDELETE→INSERTにフォールバック
+      if (scoreError) {
+        console.error('upsertエラー、フォールバック実行:', scoreError)
+        await supabase.from('evaluation_scores').delete()
+          .eq('evaluation_id', evalRef.id).eq('item_id', itemId)
+        const { error: insertError } = await supabase.from('evaluation_scores').insert({
+          evaluation_id: evalRef.id, item_id: itemId, score, comment, grade
+        })
+        if (insertError) throw insertError
+      }
 
       // ステータスを in_progress に更新（まだ pending の場合）
       if (evalRef.status === 'pending') {
@@ -581,11 +589,12 @@ export default function EvaluationsPage() {
       const evalToSave = currentEvaluationRef.current
       if (!evalToSave) return
 
-      await Promise.all(
+      // 各スコアを個別に保存（エラーチェック付き）
+      const saveResults = await Promise.all(
         evalToSave.items
           .filter(item => item.grade)
-          .map(item =>
-            supabase
+          .map(async (item) => {
+            const { error } = await supabase
               .from('evaluation_scores')
               .upsert({
                 evaluation_id: evalToSave.id,
@@ -596,8 +605,26 @@ export default function EvaluationsPage() {
               }, {
                 onConflict: 'evaluation_id,item_id'
               })
-          )
+            return { itemName: item.name, itemId: item.id, error }
+          })
       )
+
+      // upsertエラーの場合はDELETE→INSERTにフォールバック
+      const failedSaves = saveResults.filter(r => r.error)
+      if (failedSaves.length > 0) {
+        console.error('スコア保存エラー（フォールバック実行）:', failedSaves)
+        for (const failed of failedSaves) {
+          const item = evalToSave.items.find(i => i.id === failed.itemId)
+          if (!item) continue
+          await supabase.from('evaluation_scores').delete()
+            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+          const { error: insertError } = await supabase.from('evaluation_scores').insert({
+            evaluation_id: evalToSave.id, item_id: item.id,
+            score: item.score, comment: item.comment, grade: item.grade
+          })
+          if (insertError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
+        }
+      }
 
       // 総評コメントも保存
       if (evalToSave.overall_comment !== undefined) {
@@ -654,7 +681,7 @@ export default function EvaluationsPage() {
     try {
       setIsSaving(true)
 
-      // デバウンス中の保存をキャンセルし、全スコアを確実に保存
+      // デバウンス中の保存をキャンセル
       Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
       commentTimerRef.current = {}
       if (overallCommentTimerRef.current) {
@@ -662,15 +689,16 @@ export default function EvaluationsPage() {
         overallCommentTimerRef.current = null
       }
 
-      // refから最新の状態を再取得して保存
+      // refから最新の状態を取得
       const evalToSave = currentEvaluationRef.current
       if (!evalToSave) return
 
-      await Promise.all(
+      // 各スコアを個別に保存（エラーチェック付き）
+      const saveResults = await Promise.all(
         evalToSave.items
           .filter(item => item.grade)
-          .map(item =>
-            supabase
+          .map(async (item) => {
+            const { error } = await supabase
               .from('evaluation_scores')
               .upsert({
                 evaluation_id: evalToSave.id,
@@ -681,8 +709,42 @@ export default function EvaluationsPage() {
               }, {
                 onConflict: 'evaluation_id,item_id'
               })
-          )
+            return { itemName: item.name, error }
+          })
       )
+
+      // upsertエラーを確認
+      const failedSaves = saveResults.filter(r => r.error)
+      if (failedSaves.length > 0) {
+        console.error('スコア保存エラー:', failedSaves)
+        // RLSエラーの場合はDELETE→INSERTにフォールバック
+        for (const failed of failedSaves) {
+          const item = evalToSave.items.find(i => i.name === failed.itemName)
+          if (!item) continue
+
+          // 既存レコードを削除
+          await supabase
+            .from('evaluation_scores')
+            .delete()
+            .eq('evaluation_id', evalToSave.id)
+            .eq('item_id', item.id)
+
+          // 新しいレコードを挿入
+          const { error: insertError } = await supabase
+            .from('evaluation_scores')
+            .insert({
+              evaluation_id: evalToSave.id,
+              item_id: item.id,
+              score: item.score,
+              comment: item.comment,
+              grade: item.grade
+            })
+
+          if (insertError) {
+            throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
+          }
+        }
+      }
 
       // 総評コメントも保存
       if (evalToSave.overall_comment !== undefined) {
@@ -708,9 +770,9 @@ export default function EvaluationsPage() {
       await fetchSubmittedEvaluations()
       setCurrentEvaluation(null)
       setIsEditMode(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('再提出エラー:', error)
-      alert('評価の再提出に失敗しました')
+      alert(`評価の再提出に失敗しました: ${error?.message || '不明なエラー'}`)
     } finally {
       setIsSaving(false)
     }
