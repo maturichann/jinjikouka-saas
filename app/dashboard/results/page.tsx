@@ -459,12 +459,18 @@ export default function ResultsPage() {
 
   const canViewAll = canViewAllEvaluations(user.role)
 
-  // 編集可能かどうかの判定（提出した本人のみ編集可能）
+  // 編集可能かどうかの判定
   const canEdit = (evaluation: EvaluationResult) => {
-    // 提出済みでないと編集不可
     if (evaluation.status !== 'submitted') return false
-    // 評価者IDがあり、現在のユーザーと一致する場合のみ編集可能
-    return evaluation.evaluator_id === user.id
+    // 自分が提出した評価は編集可能
+    if (evaluation.evaluator_id === user.id) return true
+    // 管理者は全て編集可能
+    if (user.role === 'admin') return true
+    // 店長は自部署のスタッフの店長評価を編集可能
+    if (user.role === 'manager' && evaluation.stage === 'manager' && evaluation.department === user.department) return true
+    // MGは管轄店舗のMG評価を編集可能
+    if (user.role === 'mg' && evaluation.stage === 'mg' && user.managed_departments?.includes(evaluation.department)) return true
+    return false
   }
 
   // 編集ページへ遷移

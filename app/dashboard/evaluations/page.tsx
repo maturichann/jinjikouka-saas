@@ -328,16 +328,97 @@ export default function EvaluationsPage() {
     if (!user || !supabase) return
 
     try {
-      // 全てのユーザーは自分が提出した評価のみ編集可能
-      const { data, error } = await supabase
-        .from('evaluations')
-        .select('*')
-        .eq('evaluator_id', user.id)
-        .eq('status', 'submitted')
-        .order('submitted_at', { ascending: false })
+      let evaluationsData: any[] = []
 
-      if (error) throw error
-      const evaluationsData = data || []
+      if (user.role === 'admin') {
+        // 管理者は全ての提出済み評価を編集可能
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('status', 'submitted')
+          .order('submitted_at', { ascending: false })
+        if (error) throw error
+        evaluationsData = data || []
+      } else if (user.role === 'mg') {
+        // MGは自分が提出した評価 + 管轄店舗のMG評価
+        const managedDepts = user.managed_departments || []
+        const { data: myEvals, error: myError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluator_id', user.id)
+          .eq('status', 'submitted')
+        if (myError) throw myError
+
+        let deptEvals: any[] = []
+        if (managedDepts.length > 0) {
+          const { data: deptUsers } = await supabase
+            .from('users').select('id').in('department', managedDepts)
+          const deptUserIds = (deptUsers || []).map(u => u.id)
+          if (deptUserIds.length > 0) {
+            const { data, error } = await supabase
+              .from('evaluations')
+              .select('*')
+              .eq('stage', 'mg')
+              .in('evaluatee_id', deptUserIds)
+              .eq('status', 'submitted')
+            if (error) throw error
+            deptEvals = data || []
+          }
+        }
+        // 重複を除去
+        const allEvals = [...(myEvals || []), ...deptEvals]
+        const seen = new Set<string>()
+        evaluationsData = allEvals.filter(e => {
+          if (seen.has(e.id)) return false
+          seen.add(e.id)
+          return true
+        })
+      } else if (user.role === 'manager') {
+        // 店長は自分が提出した評価 + 自店舗スタッフの店長評価
+        const { data: myEvals, error: myError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluator_id', user.id)
+          .eq('status', 'submitted')
+        if (myError) throw myError
+
+        const { data: deptUsers } = await supabase
+          .from('users').select('id').eq('department', user.department)
+        const deptUserIds = (deptUsers || []).map(u => u.id)
+
+        let deptEvals: any[] = []
+        if (deptUserIds.length > 0) {
+          const { data, error } = await supabase
+            .from('evaluations')
+            .select('*')
+            .eq('stage', 'manager')
+            .in('evaluatee_id', deptUserIds)
+            .eq('status', 'submitted')
+          if (error) throw error
+          deptEvals = data || []
+        }
+        // 重複を除去
+        const allEvals = [...(myEvals || []), ...deptEvals]
+        const seen = new Set<string>()
+        evaluationsData = allEvals.filter(e => {
+          if (seen.has(e.id)) return false
+          seen.add(e.id)
+          return true
+        })
+      } else {
+        // スタッフは自分が提出した評価のみ
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluator_id', user.id)
+          .eq('status', 'submitted')
+        if (error) throw error
+        evaluationsData = data || []
+      }
+
+      evaluationsData.sort((a: any, b: any) =>
+        new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime()
+      )
 
       if (evaluationsData.length === 0) {
         setSubmittedEvaluations([])
@@ -366,7 +447,7 @@ export default function EvaluationsPage() {
       const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
       const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
 
-      const evaluationsWithNames = evaluationsData.map(evaluation => {
+      const evaluationsWithNames = evaluationsData.map((evaluation: any) => {
         const evaluatee = usersMap.get(evaluation.evaluatee_id)
         const period = periodsMap.get(evaluation.period_id)
 
