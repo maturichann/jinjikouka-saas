@@ -18,6 +18,7 @@ type RankingEntry = {
   rank: number
   previousScore?: number
   scoreChange?: number
+  overall_comment?: string
 }
 
 export default function RankingPage() {
@@ -184,7 +185,8 @@ export default function RankingPage() {
               totalScore,
               rank: 0, // 後で設定
               previousScore,
-              scoreChange
+              scoreChange,
+              overall_comment: evaluation.overall_comment || ''
             }
           })
         )
@@ -339,6 +341,7 @@ export default function RankingPage() {
                     <th className="text-left p-3 font-semibold">部署</th>
                     <th className="text-right p-3 font-semibold">総合スコア</th>
                     <th className="text-center p-3 font-semibold">前期比</th>
+                    <th className="text-left p-3 font-semibold">総評</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,6 +364,13 @@ export default function RankingPage() {
                         <div className="flex justify-center">
                           {getScoreChangeBadge(entry.scoreChange)}
                         </div>
+                      </td>
+                      <td className="p-3 text-sm text-gray-700 max-w-xs">
+                        {entry.overall_comment ? (
+                          <p className="whitespace-pre-line line-clamp-3">{entry.overall_comment}</p>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
