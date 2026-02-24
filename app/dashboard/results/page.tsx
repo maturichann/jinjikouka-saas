@@ -398,7 +398,7 @@ export default function ResultsPage() {
       status: e.status === 'submitted' ? '提出済み' : '未提出',
       totalScore: e.totalScore,
       submittedAt: e.submittedAt,
-      overall_comment: e.overall_comment,
+      overall_comment: user?.role === 'admin' ? e.overall_comment : undefined,
       items: e.items
     }))
   }
@@ -1223,8 +1223,8 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   </div>
                 )}
 
-                {/* 総評コメント表示 */}
-                {finalEval?.status === 'submitted' && finalEval.overall_comment && (
+                {/* 総評コメント表示（管理者のみ） */}
+                {user.role === 'admin' && finalEval?.status === 'submitted' && finalEval.overall_comment && (
                   <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
                     <h3 className="text-lg font-semibold text-red-900 mb-2">総評コメント</h3>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{finalEval.overall_comment}</p>
