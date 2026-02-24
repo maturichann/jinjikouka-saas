@@ -489,7 +489,7 @@ export async function generateRankingPDF(data: RankingPDFData) {
             <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 25%; min-width: 120px;">氏名</th>
             <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 25%; min-width: 120px;">部署</th>
             <th style="padding: 12px; border: 1px solid #ddd; text-align: right; width: 20%; min-width: 100px;">総合スコア</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 20%; min-width: 100px;">前年比</th>
+            <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 20%; min-width: 100px;">前期比</th>
           </tr>
         </thead>
         <tbody>
@@ -499,7 +499,7 @@ export async function generateRankingPDF(data: RankingPDFData) {
 
       <div style="margin-top: 30px; padding: 15px; background: #f0f9ff; border-radius: 8px; font-size: 12px; color: #1e40af;">
         <p style="margin: 0;"><strong>※</strong> 最終評価の総合スコアに基づくランキングです</p>
-        <p style="margin: 5px 0 0 0;"><strong>※</strong> 前年比は前年度同時期の最終評価との比較です</p>
+        <p style="margin: 5px 0 0 0;"><strong>※</strong> 前期比は直前の評価期間の最終評価との比較です</p>
       </div>
     </div>
   `

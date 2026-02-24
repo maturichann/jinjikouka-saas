@@ -61,6 +61,7 @@ export default function ResultsPage() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [periodFilter, setPeriodFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [stageFilter, setStageFilter] = useState<string>("all")
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationResult | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
@@ -252,6 +253,7 @@ export default function ResultsPage() {
             totalScore,
             submittedAt: evaluation.submitted_at ?
               new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
+            overall_comment: evaluation.overall_comment || '',
             items,
             evaluator_id: evaluation.evaluator_id
           }
@@ -363,6 +365,11 @@ export default function ResultsPage() {
       filtered = filtered.filter(e => e.status === "pending")
     }
 
+    // 評価段階フィルター
+    if (stageFilter !== "all") {
+      filtered = filtered.filter(e => e.stage === stageFilter)
+    }
+
     // 名前順 → 評価段階順にソート
     const stageOrder: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
     filtered.sort((a, b) => {
@@ -372,7 +379,7 @@ export default function ResultsPage() {
     })
 
     return filtered
-  }, [evaluations, user, filter, departmentFilter, periodFilter, statusFilter])
+  }, [evaluations, user, filter, departmentFilter, periodFilter, statusFilter, stageFilter])
 
   const uniqueEvaluatees = useMemo(() => {
     return Array.from(new Set(filteredEvaluations.map(e => e.evaluatee)))
@@ -385,59 +392,101 @@ export default function ResultsPage() {
       .sort((a, b) => stageOrder[a.stage] - stageOrder[b.stage])
   }
 
+  const buildPDFData = (evals: EvaluationResult[]): EvaluationPDFData['evaluations'] => {
+    return evals.map(e => ({
+      stage: getStageLabel(e.stage),
+      status: e.status === 'submitted' ? '提出済み' : '未提出',
+      totalScore: e.totalScore,
+      submittedAt: e.submittedAt,
+      overall_comment: e.overall_comment,
+      items: e.items
+    }))
+  }
+
+  const [isExporting, setIsExporting] = useState(false)
+
   const handleExportPDF = async (person: string) => {
-    const personEvals = getPersonEvaluations(person)
-    const pdfData: EvaluationPDFData = {
-      evaluatee: person,
-      department: personEvals[0]?.department || "",
-      period: personEvals[0]?.period || "",
-      evaluations: personEvals.map(e => ({
-        stage: getStageLabel(e.stage),
-        status: e.status === 'submitted' ? '提出済み' : '未提出',
-        totalScore: e.totalScore,
-        submittedAt: e.submittedAt,
-        items: e.items
-      }))
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      const personEvals = getPersonEvaluations(person)
+      if (personEvals.length === 0) {
+        alert('エクスポートするデータがありません')
+        return
+      }
+      const pdfData: EvaluationPDFData = {
+        evaluatee: person,
+        department: personEvals[0]?.department || "",
+        period: personEvals[0]?.period || "",
+        evaluations: buildPDFData(personEvals)
+      }
+      await generateEvaluationPDF(pdfData)
+    } catch (err) {
+      console.error('PDF出力エラー:', err)
+      alert('PDF出力中にエラーが発生しました。コンソールを確認してください。')
+    } finally {
+      setIsExporting(false)
     }
-    await generateEvaluationPDF(pdfData)
   }
 
   const handleExportAllPDF = async () => {
-    const allData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
-      const personEvals = getPersonEvaluations(person)
-      return {
-        evaluatee: person,
-        department: personEvals[0]?.department || "",
-        period: personEvals[0]?.period || "",
-        evaluations: personEvals.map(e => ({
-          stage: getStageLabel(e.stage),
-          status: e.status === 'submitted' ? '提出済み' : '未提出',
-          totalScore: e.totalScore,
-          submittedAt: e.submittedAt,
-          items: e.items
-        }))
-      }
-    })
-    await generateMultipleEvaluationsPDF(allData)
+    if (isExporting) return
+    const count = uniqueEvaluatees.length
+    if (count === 0) {
+      alert('エクスポートするデータがありません')
+      return
+    }
+    if (count > 5 && !confirm(`${count}名分のPDFを生成します。データ量が多いため時間がかかる場合があります。続行しますか？`)) {
+      return
+    }
+    setIsExporting(true)
+    try {
+      const allData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
+        const personEvals = getPersonEvaluations(person)
+        return {
+          evaluatee: person,
+          department: personEvals[0]?.department || "",
+          period: personEvals[0]?.period || "",
+          evaluations: buildPDFData(personEvals)
+        }
+      })
+      await generateMultipleEvaluationsPDF(allData)
+    } catch (err) {
+      console.error('PDF出力エラー:', err)
+      alert('PDF出力中にエラーが発生しました。コンソールを確認してください。')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleExportFilteredPDF = async () => {
-    const filteredData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
-      const personEvals = filteredEvaluations.filter(e => e.evaluatee === person)
-      return {
-        evaluatee: person,
-        department: personEvals[0]?.department || "",
-        period: personEvals[0]?.period || "",
-        evaluations: personEvals.map(e => ({
-          stage: getStageLabel(e.stage),
-          status: e.status === 'submitted' ? '提出済み' : '未提出',
-          totalScore: e.totalScore,
-          submittedAt: e.submittedAt,
-          items: e.items
-        }))
-      }
-    })
-    await generateMultipleEvaluationsPDF(filteredData)
+    if (isExporting) return
+    const count = uniqueEvaluatees.length
+    if (count === 0) {
+      alert('エクスポートするデータがありません')
+      return
+    }
+    if (count > 5 && !confirm(`${count}名分のPDFを生成します。データ量が多いため時間がかかる場合があります。続行しますか？`)) {
+      return
+    }
+    setIsExporting(true)
+    try {
+      const filteredData: EvaluationPDFData[] = uniqueEvaluatees.map(person => {
+        const personEvals = filteredEvaluations.filter(e => e.evaluatee === person)
+        return {
+          evaluatee: person,
+          department: personEvals[0]?.department || "",
+          period: personEvals[0]?.period || "",
+          evaluations: buildPDFData(personEvals)
+        }
+      })
+      await generateMultipleEvaluationsPDF(filteredData)
+    } catch (err) {
+      console.error('PDF出力エラー:', err)
+      alert('PDF出力中にエラーが発生しました。コンソールを確認してください。')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   if (!user) return null
@@ -548,7 +597,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                 <div>
                   <label className="text-sm font-medium mb-1 block">部署</label>
                   <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
@@ -578,6 +627,21 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   </Select>
                 </div>
                 <div>
+                  <label className="text-sm font-medium mb-1 block">評価段階</label>
+                  <Select value={stageFilter} onValueChange={setStageFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全ての段階" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全ての段階</SelectItem>
+                      <SelectItem value="self">本人評価</SelectItem>
+                      <SelectItem value="manager">店長評価</SelectItem>
+                      <SelectItem value="mg">MG評価</SelectItem>
+                      <SelectItem value="final">最終評価</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <label className="text-sm font-medium mb-1 block">ステータス</label>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger>
@@ -592,8 +656,8 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">アクション</label>
-                  <Button onClick={handleExportFilteredPDF} className="w-full" size="sm">
-                    PDFエクスポート
+                  <Button onClick={handleExportFilteredPDF} className="w-full" size="sm" disabled={isExporting}>
+                    {isExporting ? 'PDF生成中...' : 'PDFエクスポート'}
                   </Button>
                 </div>
               </div>
@@ -664,14 +728,63 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
         <TabsContent value="unified" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                 <div>
                   <CardTitle>一元管理ビュー</CardTitle>
                   <CardDescription>同じ人の評価を並べて比較</CardDescription>
                 </div>
-                <Button onClick={handleExportAllPDF} size="sm">
-                  全員PDF出力
+                <Button onClick={handleExportAllPDF} size="sm" disabled={isExporting}>
+                  {isExporting ? 'PDF生成中...' : '全員PDF出力'}
                 </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">部署</label>
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全ての部署" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全ての部署</SelectItem>
+                      {uniqueDepartments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">評価期間</label>
+                  <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全ての期間" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全ての期間</SelectItem>
+                      {uniquePeriods.map(period => (
+                        <SelectItem key={period} value={period}>{period}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">ステータス</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="全てのステータス" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全てのステータス</SelectItem>
+                      <SelectItem value="submitted">提出済みのみ</SelectItem>
+                      <SelectItem value="pending">未提出のみ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">アクション</label>
+                  <Button onClick={handleExportFilteredPDF} className="w-full" size="sm" disabled={isExporting}>
+                    {isExporting ? 'PDF生成中...' : 'PDFエクスポート'}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -693,8 +806,8 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           </CardDescription>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                          <Button variant="outline" size="sm" onClick={() => handleExportPDF(person)}>
-                            PDF
+                          <Button variant="outline" size="sm" onClick={() => handleExportPDF(person)} disabled={isExporting}>
+                            {isExporting ? '...' : 'PDF'}
                           </Button>
                           <Button
                             variant="outline"
