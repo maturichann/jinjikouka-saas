@@ -107,10 +107,7 @@ export default function RankingPage() {
         // 最終評価のデータを取得
         const { data: evaluations, error } = await client
           .from('evaluations')
-          .select(`
-            *,
-            evaluatee:users!evaluations_evaluatee_id_fkey(id, name, department)
-          `)
+          .select('*')
           .eq('period_id', selectedPeriod)
           .eq('stage', 'final')
           .eq('status', 'submitted')
@@ -118,6 +115,13 @@ export default function RankingPage() {
         if (!isActive) return
 
         if (error) throw error
+
+        // ユーザー情報を別途取得
+        const evaluateeIds = [...new Set((evaluations || []).map((e: any) => e.evaluatee_id))]
+        const { data: usersData } = evaluateeIds.length > 0
+          ? await client.from('users').select('id, name, department').in('id', evaluateeIds)
+          : { data: [] }
+        const usersMap = new Map((usersData || []).map((u: any) => [u.id, u]))
 
         // 前年同時期の期間を探す
         let previousPeriodId: string | null = null
@@ -174,10 +178,11 @@ export default function RankingPage() {
               }
             }
 
+            const evaluateeUser = usersMap.get(evaluation.evaluatee_id)
             return {
               evaluatee_id: evaluation.evaluatee_id,
-              evaluatee_name: evaluation.evaluatee?.name || '不明',
-              department: evaluation.evaluatee?.department || '不明',
+              evaluatee_name: evaluateeUser?.name || '不明',
+              department: evaluateeUser?.department || '不明',
               totalScore,
               rank: 0, // 後で設定
               previousScore,
