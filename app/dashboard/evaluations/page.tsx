@@ -561,6 +561,56 @@ export default function EvaluationsPage() {
     }
   }, [editId, editIdProcessed, isLoading, loadEvaluation])
 
+  const handleHoldToggle = async (itemId: string) => {
+    if (!currentEvaluationRef.current) return
+
+    const item = currentEvaluationRef.current.items.find(i => i.id === itemId)
+    if (!item) return
+
+    const isCurrentlyHold = item.grade === 'HOLD'
+
+    if (isCurrentlyHold) {
+      // 保留解除: gradeとscoreをクリア
+      setCurrentEvaluation(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map(i =>
+            i.id === itemId ? { ...i, grade: '', score: 0 } : i
+          )
+        }
+      })
+      // DBからスコアレコードを削除
+      const supabase = supabaseRef.current
+      const evalRef = currentEvaluationRef.current
+      if (supabase && evalRef) {
+        await supabase.from('evaluation_scores').delete()
+          .eq('evaluation_id', evalRef.id).eq('item_id', itemId)
+      }
+    } else {
+      // 保留設定: grade='HOLD', score=0
+      if (commentTimerRef.current[itemId]) {
+        clearTimeout(commentTimerRef.current[itemId])
+        delete commentTimerRef.current[itemId]
+      }
+
+      let latestComment = ''
+      setCurrentEvaluation(prev => {
+        if (!prev) return prev
+        const prevItem = prev.items.find(i => i.id === itemId)
+        latestComment = prevItem?.comment || ''
+        return {
+          ...prev,
+          items: prev.items.map(i =>
+            i.id === itemId ? { ...i, grade: 'HOLD', score: 0 } : i
+          ),
+          status: prev.status === 'pending' ? 'in_progress' : prev.status
+        }
+      })
+      await saveScore(itemId, 0, latestComment, 'HOLD')
+    }
+  }
+
   const handleGradeChange = async (itemId: string, grade: string) => {
     if (!currentEvaluationRef.current) return
 
@@ -717,8 +767,15 @@ export default function EvaluationsPage() {
     const latestEval = currentEvaluationRef.current
     if (!latestEval || !supabase) return
 
+    // 保留項目のチェック
+    const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
+    if (holdItems.length > 0) {
+      alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
+      return
+    }
+
     // 全項目にグレードが選択されているか確認
-    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '')
+    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
     if (!hasAllGrades) {
       alert('全ての評価項目にグレードを選択してください')
       return
@@ -821,8 +878,15 @@ export default function EvaluationsPage() {
     const latestEval = currentEvaluationRef.current
     if (!latestEval || !supabase || !user) return
 
+    // 保留項目のチェック
+    const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
+    if (holdItems.length > 0) {
+      alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
+      return
+    }
+
     // 全項目にグレードが選択されているか確認
-    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '')
+    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
     if (!hasAllGrades) {
       alert('全ての評価項目にグレードを選択してください')
       return
@@ -1166,11 +1230,42 @@ export default function EvaluationsPage() {
               </div>
             )}
 
-            {currentEvaluation.items.map((item) => (
-              <Card key={item.id}>
+            {/* 保留項目サマリー */}
+            {currentEvaluation.items.some(i => i.grade === 'HOLD') && (
+              <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-center gap-2">
+                <span className="text-red-600 font-bold text-sm">
+                  保留中: {currentEvaluation.items.filter(i => i.grade === 'HOLD').length}件
+                </span>
+                <span className="text-red-500 text-xs">
+                  ({currentEvaluation.items.filter(i => i.grade === 'HOLD').map(i => i.name).join('、')})
+                </span>
+              </div>
+            )}
+
+            {currentEvaluation.items.map((item) => {
+              const isHold = item.grade === 'HOLD'
+              return (
+              <Card key={item.id} className={isHold ? 'border-2 border-red-400 bg-red-50/30' : ''}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {item.name}
+                        {isHold && (
+                          <Badge variant="destructive" className="text-xs">保留</Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
+                    </div>
+                    <Button
+                      variant={isHold ? "destructive" : "outline"}
+                      size="sm"
+                      onClick={() => handleHoldToggle(item.id)}
+                      className="shrink-0 text-xs"
+                    >
+                      {isHold ? '保留解除' : '保留'}
+                    </Button>
+                  </div>
                   {/* 採点基準はMG以上（mg, final, admin）のみ表示 */}
                   {item.criteria && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
                     <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
@@ -1187,14 +1282,14 @@ export default function EvaluationsPage() {
                         if (!refScore) return null
                         const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : 'red'
                         return (
-                          <div key={ref.stage} className={`p-3 rounded-lg border bg-${stageColor}-50 border-${stageColor}-200`}
+                          <div key={ref.stage} className={`p-3 rounded-lg border`}
                             style={{
                               backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : '#fef2f2',
                               borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : '#fecaca'
                             }}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className={`text-xs font-bold`}
+                              <span className="text-xs font-bold"
                                 style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : '#dc2626' }}
                               >
                                 {ref.stageLabel}
@@ -1211,56 +1306,67 @@ export default function EvaluationsPage() {
                       })}
                     </div>
                   )}
-                  <div>
-                    <Label className="mb-3 block">
-                      評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
-                    </Label>
-                    <RadioGroup
-                      value={item.grade || undefined}
-                      onValueChange={(value) => handleGradeChange(item.id, value)}
-                      className="space-y-3"
-                    >
-                      {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
-                        <Label
-                          key={grade}
-                          htmlFor={`${item.id}-${grade}`}
-                          className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
-                        >
-                          <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
-                          <div className="flex-1">
-                            <div className="font-semibold text-base">
-                              {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
-                            </div>
-                            {/* 評価基準はMG以上（mg, final）のみ表示 */}
-                            {item.grade_criteria?.[grade as GradeKey] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
-                              <div className="text-sm text-gray-600 mt-1">
-                                {item.grade_criteria[grade as GradeKey]}
-                              </div>
-                            )}
-                          </div>
+
+                  {isHold ? (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                      <p className="text-red-600 font-semibold">この項目は保留中です</p>
+                      <p className="text-red-500 text-sm mt-1">「保留解除」を押して評価を再開してください</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="mb-3 block">
+                          評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
                         </Label>
-                      ))}
-                    </RadioGroup>
-                    {item.grade && (
-                      <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
-                        <p className="text-sm font-semibold text-green-700 mb-1">選択中: {item.grade}評価</p>
-                        <p className="text-2xl font-bold text-green-600">{item.score}点</p>
+                        <RadioGroup
+                          value={item.grade || undefined}
+                          onValueChange={(value) => handleGradeChange(item.id, value)}
+                          className="space-y-3"
+                        >
+                          {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
+                            <Label
+                              key={grade}
+                              htmlFor={`${item.id}-${grade}`}
+                              className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
+                            >
+                              <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
+                              <div className="flex-1">
+                                <div className="font-semibold text-base">
+                                  {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
+                                </div>
+                                {/* 評価基準はMG以上（mg, final）のみ表示 */}
+                                {item.grade_criteria?.[grade as GradeKey] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    {item.grade_criteria[grade as GradeKey]}
+                                  </div>
+                                )}
+                              </div>
+                            </Label>
+                          ))}
+                        </RadioGroup>
+                        {item.grade && (
+                          <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
+                            <p className="text-sm font-semibold text-green-700 mb-1">選択中: {item.grade}評価</p>
+                            <p className="text-2xl font-bold text-green-600">{item.score}点</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor={`comment-${item.id}`}>コメント</Label>
-                    <Textarea
-                      id={`comment-${item.id}`}
-                      placeholder="評価の理由や詳細を記入してください"
-                      value={item.comment}
-                      onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                      rows={3}
-                    />
-                  </div>
+                      <div>
+                        <Label htmlFor={`comment-${item.id}`}>コメント</Label>
+                        <Textarea
+                          id={`comment-${item.id}`}
+                          placeholder="評価の理由や詳細を記入してください"
+                          value={item.comment}
+                          onChange={(e) => handleCommentChange(item.id, e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              )
+            })}
 
             <div className="p-6 bg-green-50 rounded-lg">
               <div className="flex justify-between items-center mb-4">
