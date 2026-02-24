@@ -41,12 +41,27 @@ type Evaluation = {
   id: string
   evaluatee_id: string
   evaluatee_name: string
+  evaluatee_department?: string
   period_id: string
   period_name: string
   stage: 'self' | 'manager' | 'mg' | 'final'
   status: 'pending' | 'in_progress' | 'submitted'
   items: EvaluationItem[]
   overall_comment?: string
+}
+
+type ReferenceScore = {
+  grade: string
+  score: number
+  comment: string
+}
+
+type ReferenceEvaluation = {
+  stage: string
+  stageLabel: string
+  totalScore: number
+  overall_comment?: string
+  items: Record<string, ReferenceScore> // item_id -> score data
 }
 
 export default function EvaluationsPage() {
@@ -61,6 +76,9 @@ export default function EvaluationsPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending')
   const [isEditMode, setIsEditMode] = useState(false)
   const [editIdProcessed, setEditIdProcessed] = useState(false)
+  const [referenceEvaluations, setReferenceEvaluations] = useState<ReferenceEvaluation[]>([])
+  const [showReference, setShowReference] = useState(true)
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const commentTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const currentEvaluationRef = useRef<Evaluation | null>(null)
@@ -196,6 +214,7 @@ export default function EvaluationsPage() {
           id: evaluation.id,
           evaluatee_id: evaluation.evaluatee_id,
           evaluatee_name: evaluatee?.name || '',
+          evaluatee_department: evaluatee?.department || '',
           period_id: evaluation.period_id,
           period_name: period?.name || '',
           stage: evaluation.stage,
@@ -315,6 +334,59 @@ export default function EvaluationsPage() {
         items: itemsWithScores,
         overall_comment: evalData.overall_comment || ''
       })
+
+      // 前段階の評価データを取得（参照用）
+      const stageOrder: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+      const currentStageNum = stageOrder[evalData.stage] || 0
+      const previousStages = Object.entries(stageOrder)
+        .filter(([, num]) => num < currentStageNum)
+        .map(([stage]) => stage)
+
+      if (previousStages.length > 0) {
+        const { data: prevEvals } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('evaluatee_id', evalData.evaluatee_id)
+          .eq('period_id', evalData.period_id)
+          .in('stage', previousStages)
+          .eq('status', 'submitted')
+
+        const stageLabels: Record<string, string> = {
+          self: '本人評価', manager: '店長評価', mg: 'MG評価', final: '最終評価'
+        }
+
+        const refs: ReferenceEvaluation[] = []
+        for (const prevEval of (prevEvals || [])) {
+          const { data: prevScores } = await supabase
+            .from('evaluation_scores')
+            .select('*')
+            .eq('evaluation_id', prevEval.id)
+
+          const itemsMap: Record<string, ReferenceScore> = {}
+          let totalScore = 0
+          for (const s of (prevScores || [])) {
+            itemsMap[s.item_id] = {
+              grade: s.grade || '',
+              score: s.score || 0,
+              comment: s.comment || ''
+            }
+            totalScore += s.score || 0
+          }
+
+          refs.push({
+            stage: prevEval.stage,
+            stageLabel: stageLabels[prevEval.stage] || prevEval.stage,
+            totalScore,
+            overall_comment: prevEval.overall_comment || '',
+            items: itemsMap
+          })
+        }
+
+        refs.sort((a, b) => (stageOrder[a.stage] || 0) - (stageOrder[b.stage] || 0))
+        setReferenceEvaluations(refs)
+      } else {
+        setReferenceEvaluations([])
+      }
     } catch (error) {
       console.error('評価の読み込みエラー:', error)
       alert('評価の読み込みに失敗しました')
@@ -455,6 +527,7 @@ export default function EvaluationsPage() {
           id: evaluation.id,
           evaluatee_id: evaluation.evaluatee_id,
           evaluatee_name: evaluatee?.name || '削除されたユーザー',
+          evaluatee_department: evaluatee?.department || '',
           period_id: evaluation.period_id,
           period_name: period?.name || '',
           stage: evaluation.stage,
@@ -934,25 +1007,46 @@ export default function EvaluationsPage() {
               <CardTitle>評価を選択</CardTitle>
               <CardDescription>実施する評価を選択してください</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {availableEvaluations.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">未完了の評価はありません</p>
               ) : (
-                <Select
-                  value={currentEvaluation?.id || ''}
-                  onValueChange={(id) => loadEvaluation(id, false)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="評価を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableEvaluations.map(evaluation => (
-                      <SelectItem key={evaluation.id} value={evaluation.id}>
-                        {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {(() => {
+                    const depts = [...new Set(availableEvaluations.map(e => e.evaluatee_department).filter(Boolean))]
+                    if (depts.length <= 1) return null
+                    return (
+                      <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                        <SelectTrigger className="w-full sm:w-48">
+                          <SelectValue placeholder="店舗で絞り込み" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全店舗</SelectItem>
+                          {depts.sort((a, b) => a!.localeCompare(b!, 'ja')).map(dept => (
+                            <SelectItem key={dept} value={dept!}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()}
+                  <Select
+                    value={currentEvaluation?.id || ''}
+                    onValueChange={(id) => loadEvaluation(id, false)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="評価を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableEvaluations
+                        .filter(e => departmentFilter === 'all' || e.evaluatee_department === departmentFilter)
+                        .map(evaluation => (
+                          <SelectItem key={evaluation.id} value={evaluation.id}>
+                            {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
             </CardContent>
           </Card>
@@ -966,25 +1060,46 @@ export default function EvaluationsPage() {
                 あなたが提出した評価を閲覧・編集できます
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {submittedEvaluations.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">提出済みの評価はありません</p>
               ) : (
-                <Select
-                  value={currentEvaluation?.id || ''}
-                  onValueChange={loadSubmittedEvaluation}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="評価を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {submittedEvaluations.map(evaluation => (
-                      <SelectItem key={evaluation.id} value={evaluation.id}>
-                        {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {(() => {
+                    const depts = [...new Set(submittedEvaluations.map(e => e.evaluatee_department).filter(Boolean))]
+                    if (depts.length <= 1) return null
+                    return (
+                      <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                        <SelectTrigger className="w-full sm:w-48">
+                          <SelectValue placeholder="店舗で絞り込み" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全店舗</SelectItem>
+                          {depts.sort((a, b) => a!.localeCompare(b!, 'ja')).map(dept => (
+                            <SelectItem key={dept} value={dept!}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()}
+                  <Select
+                    value={currentEvaluation?.id || ''}
+                    onValueChange={loadSubmittedEvaluation}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="評価を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {submittedEvaluations
+                        .filter(e => departmentFilter === 'all' || e.evaluatee_department === departmentFilter)
+                        .map(evaluation => (
+                          <SelectItem key={evaluation.id} value={evaluation.id}>
+                            {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1025,6 +1140,32 @@ export default function EvaluationsPage() {
               <p className="text-sm text-gray-600">{currentEvaluation.period_name}</p>
             </div>
 
+            {referenceEvaluations.length > 0 && (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium">参照評価:</span>
+                  {referenceEvaluations.map(ref => (
+                    <span key={ref.stage} className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      ref.stage === 'self' ? 'bg-blue-100 text-blue-700' :
+                      ref.stage === 'manager' ? 'bg-green-100 text-green-700' :
+                      ref.stage === 'mg' ? 'bg-purple-100 text-purple-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {ref.stageLabel}: {ref.totalScore.toFixed(1)}点
+                    </span>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReference(!showReference)}
+                  className="text-xs"
+                >
+                  {showReference ? '参照を隠す' : '参照を表示'}
+                </Button>
+              </div>
+            )}
+
             {currentEvaluation.items.map((item) => (
               <Card key={item.id}>
                 <CardHeader>
@@ -1039,6 +1180,37 @@ export default function EvaluationsPage() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {showReference && referenceEvaluations.length > 0 && (
+                    <div className="space-y-2">
+                      {referenceEvaluations.map(ref => {
+                        const refScore = ref.items[item.id]
+                        if (!refScore) return null
+                        const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : 'red'
+                        return (
+                          <div key={ref.stage} className={`p-3 rounded-lg border bg-${stageColor}-50 border-${stageColor}-200`}
+                            style={{
+                              backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : '#fef2f2',
+                              borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : '#fecaca'
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-bold`}
+                                style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : '#dc2626' }}
+                              >
+                                {ref.stageLabel}
+                              </span>
+                              <span className="text-sm font-semibold">
+                                {refScore.grade}評価 - {refScore.score}点
+                              </span>
+                            </div>
+                            {refScore.comment && (
+                              <p className="text-xs text-gray-600 mt-1 whitespace-pre-line">{refScore.comment}</p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div>
                     <Label className="mb-3 block">
                       評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
@@ -1095,10 +1267,49 @@ export default function EvaluationsPage() {
                 <h3 className="text-lg font-semibold">総合評価</h3>
                 <p className="text-3xl font-bold text-green-700">{calculateTotalScore()}</p>
               </div>
+              {showReference && referenceEvaluations.length > 0 && (
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {referenceEvaluations.map(ref => (
+                    <div key={ref.stage} className="flex items-center gap-1.5 text-sm">
+                      <span className={`w-2 h-2 rounded-full`}
+                        style={{
+                          backgroundColor: ref.stage === 'self' ? '#3b82f6' : ref.stage === 'manager' ? '#22c55e' : ref.stage === 'mg' ? '#a855f7' : '#ef4444'
+                        }}
+                      />
+                      <span className="text-gray-600">{ref.stageLabel}:</span>
+                      <span className="font-semibold">{ref.totalScore.toFixed(1)}点</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-sm text-gray-600">
                 各項目の評価点を合計した総合スコアです
               </p>
             </div>
+
+            {showReference && referenceEvaluations.some(ref => ref.overall_comment) && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">参照: 総評コメント</h3>
+                {referenceEvaluations.filter(ref => ref.overall_comment).map(ref => {
+                  const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : 'red'
+                  return (
+                    <div key={ref.stage} className="p-4 rounded-lg border"
+                      style={{
+                        backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : '#fef2f2',
+                        borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : '#fecaca'
+                      }}
+                    >
+                      <p className="text-sm font-bold mb-1"
+                        style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : '#dc2626' }}
+                      >
+                        {ref.stageLabel}
+                      </p>
+                      <p className="text-sm text-gray-700 whitespace-pre-line">{ref.overall_comment}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {currentEvaluation.stage === 'final' && (
               <Card className="border-2 border-red-200 bg-red-50">
