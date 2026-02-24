@@ -34,7 +34,8 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
     isFirstPage = false
   }
 
-  const fileName = `evaluation_${data.evaluatee.replace(/\s+/g, '_')}_${Date.now()}.pdf`
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
+  const fileName = `評価レポート_${data.evaluatee}_${data.period}_${today}.pdf`
   doc.save(fileName)
 }
 
@@ -51,7 +52,12 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
     }
   }
 
-  const fileName = `evaluations_report_${Date.now()}.pdf`
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
+  const names = evaluationsData.length <= 3
+    ? evaluationsData.map(d => d.evaluatee).join('_')
+    : `${evaluationsData.length}名分`
+  const period = evaluationsData[0]?.period || ''
+  const fileName = `評価レポート_${names}_${period}_${today}.pdf`
   doc.save(fileName)
 }
 
@@ -377,6 +383,7 @@ export async function generateRankingPDF(data: RankingPDFData) {
   `
 
   const doc = await createPDFFromHTML(htmlContent)
-  const fileName = `ranking_${data.periodName.replace(/\s+/g, '_')}_${Date.now()}.pdf`
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
+  const fileName = `評価ランキング_${data.periodName}_${today}.pdf`
   doc.save(fileName)
 }
