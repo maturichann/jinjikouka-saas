@@ -123,15 +123,13 @@ export default function RankingPage() {
           : { data: [] }
         const usersMap = new Map((usersData || []).map((u: any) => [u.id, u]))
 
-        // 前年同時期の期間を探す
+        // 直前の評価期間を探す（前期比）
         let previousPeriodId: string | null = null
         if (currentPeriod) {
-          const currentYear = new Date(currentPeriod.start_date).getFullYear()
           const { data: previousPeriods } = await client
             .from('evaluation_periods')
             .select('id, start_date')
-            .gte('start_date', `${currentYear - 1}-01-01`)
-            .lt('start_date', `${currentYear}-01-01`)
+            .lt('start_date', currentPeriod.start_date)
             .order('start_date', { ascending: false })
             .limit(1)
 
@@ -340,7 +338,7 @@ export default function RankingPage() {
                     <th className="text-left p-3 font-semibold">氏名</th>
                     <th className="text-left p-3 font-semibold">部署</th>
                     <th className="text-right p-3 font-semibold">総合スコア</th>
-                    <th className="text-center p-3 font-semibold">前年比</th>
+                    <th className="text-center p-3 font-semibold">前期比</th>
                   </tr>
                 </thead>
                 <tbody>
