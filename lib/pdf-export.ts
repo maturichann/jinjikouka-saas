@@ -75,11 +75,10 @@ function buildEvaluationHTML(
       <thead>
         <tr style="background: #1e40af; color: white;">
           <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 20%; font-size: ${headerFontSize};">項目名</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 22%; font-size: ${headerFontSize};">説明</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 6%; font-size: ${headerFontSize};">配点</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 6%; font-size: ${headerFontSize};">評価</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 24%; font-size: ${headerFontSize};">説明</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 7%; font-size: ${headerFontSize};">評価</th>
           <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 7%; font-size: ${headerFontSize};">点数</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 39%; font-size: ${headerFontSize};">コメント</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 42%; font-size: ${headerFontSize};">コメント</th>
         </tr>
       </thead>
       <tbody>
@@ -90,9 +89,6 @@ function buildEvaluationHTML(
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${smallFontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; color: #475569;">
               ${item.description || '-'}
-            </td>
-            <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; text-align: center; font-size: ${fontSize}; vertical-align: top;">
-              ${item.weight}
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; font-size: ${scoreFontSize}; color: #1e293b; vertical-align: top;">
               ${item.grade === 'HOLD' ? '<span style="color:#f97316;">保留</span>' : item.grade || '-'}
