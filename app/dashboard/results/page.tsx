@@ -154,14 +154,29 @@ export default function ResultsPage() {
         evaluationsData = data || []
       }
 
-      // 評価期間情報を取得
+      // 評価期間情報を取得（template_idも含む）
       const periodIds = [...new Set(evaluationsData.map(e => e.period_id))]
       const { data: periodsData, error: periodsError } = await supabase
         .from('evaluation_periods')
-        .select('id, name')
+        .select('id, name, template_id')
         .in('id', periodIds)
 
       if (periodsError) throw periodsError
+
+      // テンプレートの全項目を取得
+      const templateIds = [...new Set((periodsData || []).map(p => (p as any).template_id).filter(Boolean))]
+      const templateItemsMap = new Map<string, any[]>()
+      for (const templateId of templateIds) {
+        const { data: templateData } = await supabase
+          .from('evaluation_templates')
+          .select('id, evaluation_items(*)')
+          .eq('id', templateId)
+          .single()
+        if (templateData?.evaluation_items) {
+          const items = (templateData.evaluation_items as any[]).sort((a: any, b: any) => (a.order_index ?? 999) - (b.order_index ?? 999))
+          templateItemsMap.set(templateId, items)
+        }
+      }
 
       // ユーザー情報を取得
       const userIds = [...new Set(evaluationsData.map(e => e.evaluatee_id))]
@@ -181,81 +196,51 @@ export default function ResultsPage() {
       // 各評価のスコアを取得して総合点を計算
       const evaluationsWithScores = await Promise.all(
         validEvaluations.map(async (evaluation) => {
+          // テンプレートの全項目を取得
+          const periodInfo = periodsMap.get(evaluation.period_id) as any
+          const templateId = periodInfo?.template_id
+          const allTemplateItems = templateId ? (templateItemsMap.get(templateId) || []) : []
+
           const { data: scoresData, error: scoresError } = await supabase
             .from('evaluation_scores')
             .select(`
               score,
               comment,
               grade,
-              item:evaluation_items(name, description, weight, criteria, order_index)
+              item_id
             `)
             .eq('evaluation_id', evaluation.id)
 
           if (scoresError) {
             console.error('スコアデータ取得エラー:', scoresError)
-            // gradeカラムが存在しない場合は、gradeなしで取得を試みる
-            const { data: scoresDataWithoutGrade, error: fallbackError } = await supabase
-              .from('evaluation_scores')
-              .select(`
-                score,
-                comment,
-                item:evaluation_items(name, description, weight, criteria, order_index)
-              `)
-              .eq('evaluation_id', evaluation.id)
+          }
 
-            if (fallbackError) throw fallbackError
+          // スコアをitem_idでマップ化
+          const scoresMap = new Map<string, any>()
+          for (const s of (scoresData || [])) {
+            scoresMap.set(s.item_id, s)
+          }
 
-            // gradeなしのデータを使用
-            const totalScore = scoresDataWithoutGrade?.reduce((sum, s: any) => sum + (s.score || 0), 0) || 0
-            const items = scoresDataWithoutGrade?.map((s: any) => ({
-              name: s.item?.name || '',
-              description: s.item?.description || '',
-              weight: s.item?.weight || 0,
-              score: s.score || 0,
-              comment: s.comment || '',
-              criteria: s.item?.criteria || '',
-              grade: '',
-              order_index: s.item?.order_index ?? 999
-            })) || []
-
-            // order_indexで並び替え
-            items.sort((a, b) => a.order_index - b.order_index)
-
+          // テンプレートの全項目をベースに、スコアをマージ
+          const items = allTemplateItems.map((templateItem: any) => {
+            const score = scoresMap.get(templateItem.id)
             return {
-              id: evaluation.id,
-              evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
-              period: periodsMap.get(evaluation.period_id)?.name || '',
-              department: usersMap.get(evaluation.evaluatee_id)?.department || '',
-              stage: evaluation.stage,
-              status: evaluation.status,
-              totalScore,
-              submittedAt: evaluation.submitted_at ?
-                new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
-              items,
-              evaluator_id: evaluation.evaluator_id
+              name: templateItem.name || '',
+              description: templateItem.description || '',
+              weight: templateItem.weight || 0,
+              score: score?.score || 0,
+              comment: score?.comment || '',
+              criteria: templateItem.criteria || '',
+              grade: score?.grade || '',
+              order_index: templateItem.order_index ?? 999
             }
-          }
-
-          // 単純合計を計算
-          let totalScore = 0
-          if (scoresData && scoresData.length > 0) {
-            totalScore = scoresData.reduce((sum, s: any) => sum + (s.score || 0), 0)
-          }
-
-          // 評価項目の詳細データを整形
-          const items = scoresData?.map((s: any) => ({
-            name: s.item?.name || '',
-            description: s.item?.description || '',
-            weight: s.item?.weight || 0,
-            score: s.score || 0,
-            comment: s.comment || '',
-            criteria: s.item?.criteria || '',
-            grade: s.grade || '',
-            order_index: s.item?.order_index ?? 999
-          })) || []
+          })
 
           // order_indexで並び替え
-          items.sort((a, b) => a.order_index - b.order_index)
+          items.sort((a: any, b: any) => a.order_index - b.order_index)
+
+          // 単純合計を計算
+          const totalScore = items.reduce((sum: number, item: any) => sum + (item.score || 0), 0)
 
           return {
             id: evaluation.id,
@@ -898,11 +883,17 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                         </div>
                         <div className="ml-4 text-right">
-                          {item.grade && (
-                            <div className="text-lg font-semibold text-gray-700 mb-1">{item.grade}評価</div>
+                          {item.grade && item.grade !== 'HOLD' ? (
+                            <>
+                              <div className="text-lg font-semibold text-gray-700 mb-1">{item.grade}評価</div>
+                              <div className="text-2xl font-bold text-blue-600">{item.score}点</div>
+                            </>
+                          ) : item.grade === 'HOLD' ? (
+                            <div className="text-lg font-bold text-orange-500">保留</div>
+                          ) : (
+                            <div className="text-lg font-bold text-red-500">未評価</div>
                           )}
-                          <div className="text-2xl font-bold text-blue-600">{item.score}点</div>
-                          <div className="text-xs text-gray-500">重み: {item.weight}</div>
+                          <div className="text-xs text-gray-500">配点: {item.weight}</div>
                         </div>
                       </div>
                       {item.criteria && (
@@ -997,10 +988,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               {/* 本人評価 */}
                               <td className="border px-1 py-0.5 text-center bg-blue-50">
                                 {selfEval?.status === 'submitted' && selfItem ? (
-                                  <div>
-                                    {selfItem.grade && <div className="text-[10px] font-semibold text-gray-700">{selfItem.grade}</div>}
-                                    <span className="text-sm font-bold text-blue-600">{selfItem.score}</span>
-                                  </div>
+                                  selfItem.grade && selfItem.grade !== 'HOLD' ? (
+                                    <div>
+                                      <div className="text-[10px] font-semibold text-gray-700">{selfItem.grade}</div>
+                                      <span className="text-sm font-bold text-blue-600">{selfItem.score}</span>
+                                    </div>
+                                  ) : selfItem.grade === 'HOLD' ? (
+                                    <span className="text-[10px] font-bold text-orange-500">保留</span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-red-500">未評価</span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
@@ -1015,10 +1012,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               {/* 店長評価 */}
                               <td className="border px-1 py-0.5 text-center bg-green-50">
                                 {managerEval?.status === 'submitted' && managerItem ? (
-                                  <div>
-                                    {managerItem.grade && <div className="text-[10px] font-semibold text-gray-700">{managerItem.grade}</div>}
-                                    <span className="text-sm font-bold text-green-600">{managerItem.score}</span>
-                                  </div>
+                                  managerItem.grade && managerItem.grade !== 'HOLD' ? (
+                                    <div>
+                                      <div className="text-[10px] font-semibold text-gray-700">{managerItem.grade}</div>
+                                      <span className="text-sm font-bold text-green-600">{managerItem.score}</span>
+                                    </div>
+                                  ) : managerItem.grade === 'HOLD' ? (
+                                    <span className="text-[10px] font-bold text-orange-500">保留</span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-red-500">未評価</span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
@@ -1033,10 +1036,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               {/* MG評価 */}
                               <td className="border px-1 py-0.5 text-center bg-purple-50">
                                 {mgEval?.status === 'submitted' && mgItem ? (
-                                  <div>
-                                    {mgItem.grade && <div className="text-[10px] font-semibold text-gray-700">{mgItem.grade}</div>}
-                                    <span className="text-sm font-bold text-purple-600">{mgItem.score}</span>
-                                  </div>
+                                  mgItem.grade && mgItem.grade !== 'HOLD' ? (
+                                    <div>
+                                      <div className="text-[10px] font-semibold text-gray-700">{mgItem.grade}</div>
+                                      <span className="text-sm font-bold text-purple-600">{mgItem.score}</span>
+                                    </div>
+                                  ) : mgItem.grade === 'HOLD' ? (
+                                    <span className="text-[10px] font-bold text-orange-500">保留</span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-red-500">未評価</span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
@@ -1051,10 +1060,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               {/* 最終評価 */}
                               <td className="border px-1 py-0.5 text-center bg-red-50">
                                 {finalEval?.status === 'submitted' && finalItem ? (
-                                  <div>
-                                    {finalItem.grade && <div className="text-[10px] font-semibold text-gray-700">{finalItem.grade}</div>}
-                                    <span className="text-sm font-bold text-red-600">{finalItem.score}</span>
-                                  </div>
+                                  finalItem.grade && finalItem.grade !== 'HOLD' ? (
+                                    <div>
+                                      <div className="text-[10px] font-semibold text-gray-700">{finalItem.grade}</div>
+                                      <span className="text-sm font-bold text-red-600">{finalItem.score}</span>
+                                    </div>
+                                  ) : finalItem.grade === 'HOLD' ? (
+                                    <span className="text-[10px] font-bold text-orange-500">保留</span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-red-500">未評価</span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
