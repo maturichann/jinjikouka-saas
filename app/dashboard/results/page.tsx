@@ -264,12 +264,6 @@ export default function ResultsPage() {
       setError(null)
     } catch (error: any) {
       console.error('評価データの取得エラー:', error)
-      console.error('エラー詳細:', {
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code
-      })
       setError(error?.message || 'Unknown error')
     } finally {
       setIsLoading(false)
@@ -986,6 +980,12 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   <p className="text-sm text-gray-600">提出日</p>
                   <p className="font-semibold">{selectedEvaluation.submittedAt}</p>
                 </div>
+                {canViewOverallComment && selectedEvaluation.stage === 'final' && selectedEvaluation.status === 'submitted' && selectedEvaluation.overall_comment && (
+                  <div className="col-span-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm font-semibold text-red-900 mb-1">総評</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedEvaluation.overall_comment}</p>
+                  </div>
+                )}
               </div>
 
               {selectedEvaluation.status === 'submitted' && selectedEvaluation.items && selectedEvaluation.items.length > 0 ? (
