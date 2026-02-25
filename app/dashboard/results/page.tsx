@@ -38,7 +38,7 @@ type EvaluationResult = {
   period: string
   department: string
   stage: 'self' | 'manager' | 'mg' | 'final'
-  status: 'pending' | 'submitted'
+  status: 'pending' | 'submitted' | 'confirmed'
   totalScore: number
   submittedAt: string
   overall_comment?: string
@@ -143,16 +143,18 @@ export default function ResultsPage() {
         if (error) throw error
         evaluationsData = data || []
       } else {
-        // スタッフは自分の本人評価のみ閲覧可能
+        // スタッフは自分の本人評価 + 確定済み最終評価を閲覧可能
         const { data, error } = await supabase
           .from('evaluations')
           .select('*')
           .eq('evaluatee_id', user.id)
-          .eq('stage', 'self')
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        evaluationsData = data || []
+        // self評価 または 確定済みfinal のみ残す
+        evaluationsData = (data || []).filter(
+          (e: any) => e.stage === 'self' || (e.stage === 'final' && e.status === 'confirmed')
+        )
       }
 
       // 評価期間情報を取得（template_idも含む）
@@ -260,7 +262,21 @@ export default function ResultsPage() {
         })
       )
 
-      setEvaluations(evaluationsWithScores)
+      // スタッフが確定済み最終評価を見る場合、総評とコメントを除外
+      const processedEvaluations = user.role === 'staff'
+        ? evaluationsWithScores.map(e => {
+            if (e.stage === 'final' && e.status === 'confirmed') {
+              return {
+                ...e,
+                overall_comment: '',
+                items: e.items?.map(item => ({ ...item, comment: '' }))
+              }
+            }
+            return e
+          })
+        : evaluationsWithScores
+
+      setEvaluations(processedEvaluations)
       setError(null)
     } catch (error: any) {
       console.error('評価データの取得エラー:', error)
@@ -298,6 +314,9 @@ export default function ResultsPage() {
   }
 
   const getStatusBadge = (status: string) => {
+    if (status === 'confirmed') {
+      return <Badge className="bg-green-600 text-white">確定済み</Badge>
+    }
     const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
       pending: { variant: "outline", label: "未提出" },
       submitted: { variant: "default", label: "提出済み" }
@@ -354,9 +373,11 @@ export default function ResultsPage() {
 
     // ステータスフィルター
     if (statusFilter === "submitted") {
-      filtered = filtered.filter(e => e.status === "submitted")
+      filtered = filtered.filter(e => e.status === "submitted" || e.status === "confirmed")
     } else if (statusFilter === "pending") {
       filtered = filtered.filter(e => e.status === "pending")
+    } else if (statusFilter === "confirmed") {
+      filtered = filtered.filter(e => e.status === "confirmed")
     }
 
     // 評価段階フィルター
@@ -389,15 +410,44 @@ export default function ResultsPage() {
   // 総評閲覧権限: 管理者・MGのみ
   const canViewOverallComment = user?.role === 'admin' || user?.role === 'mg'
 
+  // 提出済み or 確定済みを「完了」として扱う
+  const isCompleted = (status: string) => status === 'submitted' || status === 'confirmed'
+
   const buildPDFData = (evals: EvaluationResult[]): EvaluationPDFData['evaluations'] => {
     return evals.map(e => ({
       stage: getStageLabel(e.stage),
-      status: e.status === 'submitted' ? '提出済み' : '未提出',
+      status: isCompleted(e.status) ? '提出済み' : '未提出',
       totalScore: e.totalScore,
       submittedAt: e.submittedAt,
       overall_comment: undefined,
       items: e.items?.map(item => ({ ...item, comment: '' }))
     }))
+  }
+
+  const handleConfirmEvaluation = async (evaluationId: string, evaluateeName: string) => {
+    if (!confirm(`${evaluateeName}の最終評価を確定しますか？\n確定すると本人に閲覧権限が付与されます（総評・コメントは非表示）。`)) {
+      return
+    }
+
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluations')
+        .update({ status: 'confirmed' })
+        .eq('id', evaluationId)
+
+      if (error) throw error
+
+      setEvaluations(prev =>
+        prev.map(e => e.id === evaluationId ? { ...e, status: 'confirmed' as const } : e)
+      )
+      alert(`${evaluateeName}の最終評価を確定しました。本人が閲覧可能になりました。`)
+    } catch (error: any) {
+      console.error('確定エラー:', error)
+      alert('確定に失敗しました: ' + (error?.message || ''))
+    }
   }
 
   const [isExporting, setIsExporting] = useState(false)
@@ -647,6 +697,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                     <SelectContent>
                       <SelectItem value="all">全てのステータス</SelectItem>
                       <SelectItem value="submitted">提出済みのみ</SelectItem>
+                      <SelectItem value="confirmed">確定済みのみ</SelectItem>
                       <SelectItem value="pending">未提出のみ</SelectItem>
                     </SelectContent>
                   </Select>
@@ -683,7 +734,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                       <TableCell>{getStageBadge(evaluation.stage)}</TableCell>
                       <TableCell>{getStatusBadge(evaluation.status)}</TableCell>
                       <TableCell>
-                        {evaluation.status === 'submitted' ? (
+                        {isCompleted(evaluation.status) ? (
                           <span className="font-semibold">{evaluation.totalScore.toFixed(1)}</span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -702,13 +753,22 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           >
                             詳細
                           </Button>
-                          {canEdit(evaluation) && (
+                          {canEdit(evaluation) && evaluation.status !== 'confirmed' && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleEdit(evaluation.id)}
                             >
                               編集
+                            </Button>
+                          )}
+                          {user?.role === 'admin' && evaluation.stage === 'final' && evaluation.status === 'submitted' && (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => handleConfirmEvaluation(evaluation.id, evaluation.evaluatee)}
+                            >
+                              確定
                             </Button>
                           )}
                         </div>
@@ -772,6 +832,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                     <SelectContent>
                       <SelectItem value="all">全てのステータス</SelectItem>
                       <SelectItem value="submitted">提出済みのみ</SelectItem>
+                      <SelectItem value="confirmed">確定済みのみ</SelectItem>
                       <SelectItem value="pending">未提出のみ</SelectItem>
                     </SelectContent>
                   </Select>
@@ -840,7 +901,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                             <CardTitle className="text-sm">本人評価</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            {selfEval?.status === 'submitted' ? (
+                            {selfEval && isCompleted(selfEval.status) ? (
                               <>
                                 <p className="text-3xl font-bold text-blue-600">
                                   {selfEval.totalScore.toFixed(1)}
@@ -865,7 +926,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                             <CardTitle className="text-sm">店長評価</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            {managerEval?.status === 'submitted' ? (
+                            {managerEval && isCompleted(managerEval.status) ? (
                               <>
                                 <p className="text-3xl font-bold text-green-600">
                                   {managerEval.totalScore.toFixed(1)}
@@ -890,7 +951,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                             <CardTitle className="text-sm">MG評価</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            {mgEval?.status === 'submitted' ? (
+                            {mgEval && isCompleted(mgEval.status) ? (
                               <>
                                 <p className="text-3xl font-bold text-purple-600">
                                   {mgEval.totalScore.toFixed(1)}
@@ -915,14 +976,14 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">評価進捗</span>
                           <span className="text-sm text-gray-600">
-                            {personEvals.filter(e => e.status === 'submitted').length} / 3
+                            {personEvals.filter(e => isCompleted(e.status)).length} / 3
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full"
                             style={{
-                              width: `${(personEvals.filter(e => e.status === 'submitted').length / 3) * 100}%`
+                              width: `${(personEvals.filter(e => isCompleted(e.status)).length / 3) * 100}%`
                             }}
                           />
                         </div>
@@ -971,7 +1032,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 <div>
                   <p className="text-sm text-gray-600">総合スコア</p>
                   <p className="font-semibold text-2xl text-blue-600">
-                    {selectedEvaluation.status === 'submitted'
+                    {isCompleted(selectedEvaluation.status)
                       ? selectedEvaluation.totalScore.toFixed(1)
                       : '-'}
                   </p>
@@ -980,7 +1041,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   <p className="text-sm text-gray-600">提出日</p>
                   <p className="font-semibold">{selectedEvaluation.submittedAt}</p>
                 </div>
-                {canViewOverallComment && selectedEvaluation.stage === 'final' && selectedEvaluation.status === 'submitted' && selectedEvaluation.overall_comment && (
+                {canViewOverallComment && selectedEvaluation.stage === 'final' && isCompleted(selectedEvaluation.status) && selectedEvaluation.overall_comment && (
                   <div className="col-span-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm font-semibold text-red-900 mb-1">総評</p>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedEvaluation.overall_comment}</p>
@@ -988,7 +1049,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 )}
               </div>
 
-              {selectedEvaluation.status === 'submitted' && selectedEvaluation.items && selectedEvaluation.items.length > 0 ? (
+              {isCompleted(selectedEvaluation.status) && selectedEvaluation.items && selectedEvaluation.items.length > 0 ? (
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">評価項目の詳細</h3>
                   {selectedEvaluation.items.map((item, idx) => (
@@ -1103,7 +1164,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               </td>
                               {/* 本人評価 */}
                               <td className="border px-1 py-0.5 text-center bg-blue-50">
-                                {selfEval?.status === 'submitted' && selfItem ? (
+                                {selfEval && isCompleted(selfEval.status) && selfItem ? (
                                   selfItem.grade && selfItem.grade !== 'HOLD' ? (
                                     <div>
                                       <div className="text-[10px] font-semibold text-gray-700">{selfItem.grade}</div>
@@ -1119,7 +1180,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               <td className="border px-1 py-0.5 text-[10px] bg-blue-50">
-                                {selfEval?.status === 'submitted' && selfItem?.comment ? (
+                                {selfEval && isCompleted(selfEval.status) && selfItem?.comment ? (
                                   selfItem.comment
                                 ) : (
                                   <span className="text-gray-400">-</span>
@@ -1127,7 +1188,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               </td>
                               {/* 店長評価 */}
                               <td className="border px-1 py-0.5 text-center bg-green-50">
-                                {managerEval?.status === 'submitted' && managerItem ? (
+                                {managerEval && isCompleted(managerEval.status) && managerItem ? (
                                   managerItem.grade && managerItem.grade !== 'HOLD' ? (
                                     <div>
                                       <div className="text-[10px] font-semibold text-gray-700">{managerItem.grade}</div>
@@ -1143,7 +1204,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               <td className="border px-1 py-0.5 text-[10px] bg-green-50">
-                                {managerEval?.status === 'submitted' && managerItem?.comment ? (
+                                {managerEval && isCompleted(managerEval.status) && managerItem?.comment ? (
                                   managerItem.comment
                                 ) : (
                                   <span className="text-gray-400">-</span>
@@ -1151,7 +1212,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               </td>
                               {/* MG評価 */}
                               <td className="border px-1 py-0.5 text-center bg-purple-50">
-                                {mgEval?.status === 'submitted' && mgItem ? (
+                                {mgEval && isCompleted(mgEval.status) && mgItem ? (
                                   mgItem.grade && mgItem.grade !== 'HOLD' ? (
                                     <div>
                                       <div className="text-[10px] font-semibold text-gray-700">{mgItem.grade}</div>
@@ -1167,7 +1228,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               <td className="border px-1 py-0.5 text-[10px] bg-purple-50">
-                                {mgEval?.status === 'submitted' && mgItem?.comment ? (
+                                {mgEval && isCompleted(mgEval.status) && mgItem?.comment ? (
                                   mgItem.comment
                                 ) : (
                                   <span className="text-gray-400">-</span>
@@ -1175,7 +1236,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               </td>
                               {/* 最終評価 */}
                               <td className="border px-1 py-0.5 text-center bg-red-50">
-                                {finalEval?.status === 'submitted' && finalItem ? (
+                                {finalEval && isCompleted(finalEval.status) && finalItem ? (
                                   finalItem.grade && finalItem.grade !== 'HOLD' ? (
                                     <div>
                                       <div className="text-[10px] font-semibold text-gray-700">{finalItem.grade}</div>
@@ -1191,7 +1252,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                 )}
                               </td>
                               <td className="border px-1 py-0.5 text-[10px] bg-red-50">
-                                {finalEval?.status === 'submitted' && finalItem?.comment ? (
+                                {finalEval && isCompleted(finalEval.status) && finalItem?.comment ? (
                                   finalItem.comment
                                 ) : (
                                   <span className="text-gray-400">-</span>
@@ -1205,16 +1266,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                         <tr className="bg-gray-100 font-bold">
                           <td className="border p-2 text-right sticky left-0 bg-gray-100 z-10">総合スコア</td>
                           <td className="border p-2 text-center text-xl text-blue-600 bg-blue-50" colSpan={2}>
-                            {selfEval?.status === 'submitted' ? selfEval.totalScore.toFixed(1) : '-'}
+                            {selfEval && isCompleted(selfEval.status) ? selfEval.totalScore.toFixed(1) : '-'}
                           </td>
                           <td className="border p-2 text-center text-xl text-green-600 bg-green-50" colSpan={2}>
-                            {managerEval?.status === 'submitted' ? managerEval.totalScore.toFixed(1) : '-'}
+                            {managerEval && isCompleted(managerEval.status) ? managerEval.totalScore.toFixed(1) : '-'}
                           </td>
                           <td className="border p-2 text-center text-xl text-purple-600 bg-purple-50" colSpan={2}>
-                            {mgEval?.status === 'submitted' ? mgEval.totalScore.toFixed(1) : '-'}
+                            {mgEval && isCompleted(mgEval.status) ? mgEval.totalScore.toFixed(1) : '-'}
                           </td>
                           <td className="border p-2 text-center text-xl text-red-600 bg-red-50" colSpan={2}>
-                            {finalEval?.status === 'submitted' ? finalEval.totalScore.toFixed(1) : '-'}
+                            {finalEval && isCompleted(finalEval.status) ? finalEval.totalScore.toFixed(1) : '-'}
                           </td>
                         </tr>
                       </tfoot>
@@ -1227,7 +1288,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 )}
 
                 {/* 総評コメント表示（管理者・MGのみ） */}
-                {canViewOverallComment && finalEval?.status === 'submitted' && finalEval.overall_comment && (
+                {canViewOverallComment && finalEval && isCompleted(finalEval.status) && finalEval.overall_comment && (
                   <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
                     <h3 className="text-lg font-semibold text-red-900 mb-2">総評コメント</h3>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{finalEval.overall_comment}</p>
