@@ -243,6 +243,61 @@ export default function EvaluationsPage() {
     }
   }, [user])
 
+  // 前期の最終評価を取得する関数
+  const fetchPreviousFinalEvaluation = async (
+    supabase: ReturnType<typeof createClient>,
+    evaluateeId: string,
+    currentPeriod: any
+  ): Promise<ReferenceEvaluation | null> => {
+    try {
+      const { data: prevPeriods } = await supabase
+        .from('evaluation_periods')
+        .select('id, name')
+        .lt('start_date', currentPeriod.start_date || currentPeriod.created_at)
+        .order('start_date', { ascending: false })
+        .limit(1)
+
+      if (!prevPeriods || prevPeriods.length === 0) return null
+
+      const { data: prevFinalEval } = await supabase
+        .from('evaluations')
+        .select('*')
+        .eq('evaluatee_id', evaluateeId)
+        .eq('period_id', prevPeriods[0].id)
+        .eq('stage', 'final')
+        .in('status', ['submitted', 'confirmed'])
+        .maybeSingle()
+
+      if (!prevFinalEval) return null
+
+      const { data: prevScores } = await supabase
+        .from('evaluation_scores')
+        .select('*')
+        .eq('evaluation_id', prevFinalEval.id)
+
+      const itemsMap: Record<string, ReferenceScore> = {}
+      let totalScore = 0
+      for (const s of (prevScores || [])) {
+        itemsMap[s.item_id] = {
+          grade: s.grade || '',
+          score: s.score || 0,
+          comment: s.comment || ''
+        }
+        totalScore += s.score || 0
+      }
+
+      return {
+        stage: 'prev_final',
+        stageLabel: `前期最終（${prevPeriods[0].name}）`,
+        totalScore,
+        overall_comment: '',
+        items: itemsMap
+      }
+    } catch {
+      return null
+    }
+  }
+
   const loadEvaluation = useCallback(async (evaluationId: string, forEdit: boolean = false) => {
     const supabase = supabaseRef.current
     if (!supabase) return
@@ -383,9 +438,22 @@ export default function EvaluationsPage() {
         }
 
         refs.sort((a, b) => (stageOrder[a.stage] || 0) - (stageOrder[b.stage] || 0))
+
+        // 前期の最終評価を取得
+        const prevFinalRef = await fetchPreviousFinalEvaluation(supabase, evalData.evaluatee_id, period)
+        if (prevFinalRef) {
+          refs.push(prevFinalRef)
+        }
+
         setReferenceEvaluations(refs)
       } else {
-        setReferenceEvaluations([])
+        // 前段階がない場合（本人評価）でも前期の最終評価は取得
+        const refs: ReferenceEvaluation[] = []
+        const prevFinalRef = await fetchPreviousFinalEvaluation(supabase, evalData.evaluatee_id, period)
+        if (prevFinalRef) {
+          refs.push(prevFinalRef)
+        }
+        setReferenceEvaluations(refs)
       }
     } catch (error) {
       console.error('評価の読み込みエラー:', error)
@@ -1229,6 +1297,7 @@ export default function EvaluationsPage() {
                       ref.stage === 'self' ? 'bg-blue-100 text-blue-700' :
                       ref.stage === 'manager' ? 'bg-green-100 text-green-700' :
                       ref.stage === 'mg' ? 'bg-purple-100 text-purple-700' :
+                      ref.stage === 'prev_final' ? 'bg-amber-100 text-amber-700' :
                       'bg-red-100 text-red-700'
                     }`}>
                       {ref.stageLabel}: {ref.totalScore.toFixed(1)}点
@@ -1296,17 +1365,17 @@ export default function EvaluationsPage() {
                       {referenceEvaluations.map(ref => {
                         const refScore = ref.items[item.id]
                         if (!refScore) return null
-                        const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : 'red'
+                        const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : ref.stage === 'prev_final' ? 'amber' : 'red'
                         return (
                           <div key={ref.stage} className={`p-3 rounded-lg border`}
                             style={{
-                              backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : '#fef2f2',
-                              borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : '#fecaca'
+                              backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : stageColor === 'amber' ? '#fffbeb' : '#fef2f2',
+                              borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : stageColor === 'amber' ? '#fde68a' : '#fecaca'
                             }}
                           >
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs font-bold"
-                                style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : '#dc2626' }}
+                                style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : stageColor === 'amber' ? '#b45309' : '#dc2626' }}
                               >
                                 {ref.stageLabel}
                               </span>

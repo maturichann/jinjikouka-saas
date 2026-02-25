@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type EvaluationResult = {
   id: string
@@ -450,6 +451,58 @@ export default function ResultsPage() {
     }
   }
 
+  const [selectedForConfirm, setSelectedForConfirm] = useState<Set<string>>(new Set())
+
+  const confirmableEvaluations = useMemo(() =>
+    filteredEvaluations.filter(e => e.stage === 'final' && e.status === 'submitted'),
+    [filteredEvaluations]
+  )
+
+  const toggleConfirmSelection = (id: string) => {
+    setSelectedForConfirm(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllConfirmSelection = () => {
+    if (selectedForConfirm.size === confirmableEvaluations.length) {
+      setSelectedForConfirm(new Set())
+    } else {
+      setSelectedForConfirm(new Set(confirmableEvaluations.map(e => e.id)))
+    }
+  }
+
+  const handleBulkConfirm = async () => {
+    if (selectedForConfirm.size === 0) return
+    const names = [...selectedForConfirm].map(id => evaluations.find(e => e.id === id)?.evaluatee).filter(Boolean)
+    if (!confirm(`以下の${selectedForConfirm.size}件の最終評価を確定しますか？\n${names.join('、')}\n\n確定すると本人に閲覧権限が付与されます（総評・コメントは非表示）。`)) return
+
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    try {
+      const ids = [...selectedForConfirm]
+      const { error } = await supabase
+        .from('evaluations')
+        .update({ status: 'confirmed' })
+        .in('id', ids)
+
+      if (error) throw error
+
+      setEvaluations(prev =>
+        prev.map(e => ids.includes(e.id) ? { ...e, status: 'confirmed' as const } : e)
+      )
+      setSelectedForConfirm(new Set())
+      alert(`${ids.length}件の最終評価を確定しました。`)
+    } catch (error: any) {
+      console.error('一括確定エラー:', error)
+      alert('確定に失敗しました: ' + (error?.message || ''))
+    }
+  }
+
   const [isExporting, setIsExporting] = useState(false)
 
   const handleExportPDF = async (person: string) => {
@@ -711,10 +764,33 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
               </div>
             </CardHeader>
             <CardContent>
+              {user?.role === 'admin' && confirmableEvaluations.length > 0 && (
+                <div className="flex items-center justify-between p-3 mb-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={selectedForConfirm.size === confirmableEvaluations.length && confirmableEvaluations.length > 0}
+                      onCheckedChange={toggleAllConfirmSelection}
+                    />
+                    <span className="text-sm font-medium text-green-800">
+                      未確定の最終評価: {confirmableEvaluations.length}件
+                      {selectedForConfirm.size > 0 && ` （${selectedForConfirm.size}件選択中）`}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={selectedForConfirm.size === 0}
+                    onClick={handleBulkConfirm}
+                  >
+                    選択した{selectedForConfirm.size}件を確定
+                  </Button>
+                </div>
+              )}
               <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {user?.role === 'admin' && <TableHead className="w-10"></TableHead>}
                     <TableHead>評価対象者</TableHead>
                     <TableHead className="hidden sm:table-cell">部署</TableHead>
                     <TableHead className="hidden md:table-cell">評価期間</TableHead>
@@ -728,6 +804,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 <TableBody>
                   {filteredEvaluations.map((evaluation) => (
                     <TableRow key={evaluation.id}>
+                      {user?.role === 'admin' && (
+                        <TableCell>
+                          {evaluation.stage === 'final' && evaluation.status === 'submitted' && (
+                            <Checkbox
+                              checked={selectedForConfirm.has(evaluation.id)}
+                              onCheckedChange={() => toggleConfirmSelection(evaluation.id)}
+                            />
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium whitespace-nowrap">{evaluation.evaluatee}</TableCell>
                       <TableCell className="hidden sm:table-cell">{evaluation.department}</TableCell>
                       <TableCell className="hidden md:table-cell">{evaluation.period}</TableCell>
