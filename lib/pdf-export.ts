@@ -80,17 +80,16 @@ function buildEvaluationHTML(
     <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: ${fontSize}; line-height: 1.35;">
       <thead>
         <tr style="background: #1e40af; color: white;">
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 20%; font-size: ${headerFontSize};">項目名</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 24%; font-size: ${headerFontSize};">説明</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 7%; font-size: ${headerFontSize};">評価</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 7%; font-size: ${headerFontSize};">点数</th>
-          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 42%; font-size: ${headerFontSize};">コメント</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 30%; font-size: ${headerFontSize};">項目名</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: left; width: 48%; font-size: ${headerFontSize};">説明</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 10%; font-size: ${headerFontSize};">評価</th>
+          <th style="padding: ${cellPadding}; border: 1px solid #1e3a8a; text-align: center; width: 12%; font-size: ${headerFontSize};">点数</th>
         </tr>
       </thead>
       <tbody>
         ${evaluation.items.map((item, i) => `
           <tr style="background: ${i % 2 === 0 ? '#f8fafc' : 'white'};">
-            <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${fontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word;">
+            <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${fontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; font-weight: 500;">
               ${item.name}
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${smallFontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; color: #475569;">
@@ -101,9 +100,6 @@ function buildEvaluationHTML(
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; font-size: ${scoreFontSize}; color: #2563eb; vertical-align: top;">
               ${item.grade === 'HOLD' ? '-' : item.score || 0}
-            </td>
-            <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${smallFontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word;">
-              ${item.comment || '-'}
             </td>
           </tr>
         `).join('')}
@@ -120,12 +116,17 @@ function buildEvaluationHTML(
 
   return `
     <div style="font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; padding: 4px 8px; max-width: 800px;">
-      <div style="background: #1e40af; color: white; padding: 6px 12px; border-radius: 4px 4px 0 0;">
+      <div style="background: #1e40af; color: white; padding: 8px 14px; border-radius: 4px 4px 0 0;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 13px; font-weight: bold;">${evaluatee}（${department}）</span>
-          <span style="font-size: 11px;">${evaluation.stage} | 総合: ${evaluation.totalScore.toFixed(1)}点</span>
+          <div>
+            <div style="font-size: 14px; font-weight: bold;">${evaluatee}（${department}）</div>
+            <div style="font-size: 9px; margin-top: 3px; opacity: 0.85;">${period} | ${evaluation.submittedAt}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10px; opacity: 0.85;">${evaluation.stage}</div>
+            <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">${evaluation.totalScore.toFixed(1)}<span style="font-size: 12px; margin-left: 2px;">点</span></div>
+          </div>
         </div>
-        <div style="font-size: 9px; margin-top: 2px; opacity: 0.9;">${period} | ${evaluation.submittedAt}</div>
       </div>
       <div style="margin-top: 2px;">
         ${itemsTableHTML}

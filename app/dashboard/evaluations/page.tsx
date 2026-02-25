@@ -762,6 +762,18 @@ export default function EvaluationsPage() {
     return totalScore.toFixed(1)
   }
 
+  const scrollToMissingItem = (items: EvaluationItem[]) => {
+    const missing = items.find(item => !item.grade || item.grade === '' || item.grade === 'HOLD')
+    if (missing) {
+      const el = document.getElementById(`eval-item-${missing.id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('ring-2', 'ring-red-500', 'ring-offset-2')
+        setTimeout(() => el.classList.remove('ring-2', 'ring-red-500', 'ring-offset-2'), 3000)
+      }
+    }
+  }
+
   const handleSubmit = async () => {
     const supabase = supabaseRef.current
     const latestEval = currentEvaluationRef.current
@@ -770,6 +782,7 @@ export default function EvaluationsPage() {
     // 保留項目のチェック
     const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
     if (holdItems.length > 0) {
+      scrollToMissingItem(latestEval.items)
       alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
       return
     }
@@ -777,6 +790,7 @@ export default function EvaluationsPage() {
     // 全項目にグレードが選択されているか確認
     const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
     if (!hasAllGrades) {
+      scrollToMissingItem(latestEval.items)
       alert('全ての評価項目にグレードを選択してください')
       return
     }
@@ -881,6 +895,7 @@ export default function EvaluationsPage() {
     // 保留項目のチェック
     const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
     if (holdItems.length > 0) {
+      scrollToMissingItem(latestEval.items)
       alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
       return
     }
@@ -888,6 +903,7 @@ export default function EvaluationsPage() {
     // 全項目にグレードが選択されているか確認
     const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
     if (!hasAllGrades) {
+      scrollToMissingItem(latestEval.items)
       alert('全ての評価項目にグレードを選択してください')
       return
     }
@@ -1245,7 +1261,7 @@ export default function EvaluationsPage() {
             {currentEvaluation.items.map((item) => {
               const isHold = item.grade === 'HOLD'
               return (
-              <Card key={item.id} className={isHold ? 'border-2 border-red-400 bg-red-50/30' : ''}>
+              <Card key={item.id} id={`eval-item-${item.id}`} className={isHold ? 'border-2 border-red-400 bg-red-50/30' : ''}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
