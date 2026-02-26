@@ -740,7 +740,8 @@ export default function EvaluationsPage() {
       const latestItem = latest.items.find(i => i.id === itemId)
       const latestGrade = latestItem?.grade || ''
       const latestScore = latestItem?.score || 0
-      await saveScore(itemId, latestScore, comment, latestGrade)
+      const latestComment = latestItem?.comment || ''
+      await saveScore(itemId, latestScore, latestComment, latestGrade)
     }, 500)
   }
 
@@ -765,13 +766,14 @@ export default function EvaluationsPage() {
 
   const saveOverallComment = async (comment: string) => {
     const supabase = supabaseRef.current
-    if (!currentEvaluation || !supabase) return
+    const evalRef = currentEvaluationRef.current
+    if (!evalRef || !supabase) return
 
     try {
       const { error } = await supabase
         .from('evaluations')
         .update({ overall_comment: comment })
-        .eq('id', currentEvaluation.id)
+        .eq('id', evalRef.id)
 
       if (error) throw error
     } catch (error) {
