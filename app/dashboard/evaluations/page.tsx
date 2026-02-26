@@ -1309,6 +1309,52 @@ export default function EvaluationsPage() {
               <p className="text-sm text-gray-600">{currentEvaluation.period_name}</p>
             </div>
 
+            {/* 進捗バー */}
+            {(() => {
+              const total = currentEvaluation.items.length
+              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '' && i.grade !== 'HOLD').length
+              const holdCount = currentEvaluation.items.filter(i => i.grade === 'HOLD').length
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0
+              const isComplete = done === total
+              return (
+                <div className="sticky top-0 z-20 bg-white border rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold">
+                      入力進捗: <span className={isComplete ? 'text-green-600' : 'text-orange-600'}>{done}/{total}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {holdCount > 0 && (
+                        <span className="text-xs text-orange-500 font-medium">保留{holdCount}件</span>
+                      )}
+                      <span className={`text-sm font-bold ${isComplete ? 'text-green-600' : 'text-orange-600'}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className={`h-2.5 rounded-full transition-all duration-300 ${isComplete ? 'bg-green-500' : 'bg-orange-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {!isComplete && (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs text-orange-600 underline"
+                      onClick={() => {
+                        const missing = currentEvaluation.items.find(i => !i.grade || i.grade === '' || i.grade === 'HOLD')
+                        if (missing) {
+                          document.getElementById(`eval-item-${missing.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                    >
+                      未入力の項目へジャンプ →
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+
             {referenceEvaluations.length > 0 && (
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -1351,14 +1397,21 @@ export default function EvaluationsPage() {
             {currentEvaluation.items.map((item) => {
               const isHold = item.grade === 'HOLD'
               return (
-              <Card key={item.id} id={`eval-item-${item.id}`} className={isHold ? 'border-2 border-red-400 bg-red-50/30' : ''}>
+              <Card key={item.id} id={`eval-item-${item.id}`} className={
+                isHold ? 'border-2 border-orange-400 bg-orange-50/30' :
+                (!item.grade || item.grade === '') ? 'border-2 border-red-300 bg-red-50/20' : 'border border-green-200'
+              }>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <CardTitle className="text-lg flex items-center gap-2">
                         {item.name}
-                        {isHold && (
+                        {isHold ? (
                           <Badge variant="destructive" className="text-xs">保留</Badge>
+                        ) : item.grade && item.grade !== '' ? (
+                          <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-red-500 border-red-300">未入力</Badge>
                         )}
                       </CardTitle>
                       <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
@@ -1548,6 +1601,61 @@ export default function EvaluationsPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* 提出前の最終確認 */}
+            {(() => {
+              const missing = currentEvaluation.items.filter(i => !i.grade || i.grade === '')
+              const holds = currentEvaluation.items.filter(i => i.grade === 'HOLD')
+              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '' && i.grade !== 'HOLD')
+              if (missing.length === 0 && holds.length === 0) {
+                return (
+                  <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+                    <p className="text-green-700 font-bold text-center">全{currentEvaluation.items.length}項目の入力が完了しています</p>
+                  </div>
+                )
+              }
+              return (
+                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg space-y-2">
+                  <p className="text-red-700 font-bold">
+                    入力状況: {done.length}/{currentEvaluation.items.length}項目完了
+                  </p>
+                  {missing.length > 0 && (
+                    <div>
+                      <p className="text-red-600 text-sm font-medium">未入力（{missing.length}件）:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {missing.map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                            onClick={() => document.getElementById(`eval-item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          >
+                            {item.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {holds.length > 0 && (
+                    <div>
+                      <p className="text-orange-600 text-sm font-medium">保留中（{holds.length}件）:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {holds.map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200 transition-colors"
+                            onClick={() => document.getElementById(`eval-item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          >
+                            {item.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             <div className="flex gap-4">
               {isEditMode ? (
