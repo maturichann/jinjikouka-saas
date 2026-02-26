@@ -613,20 +613,6 @@ export default function EvaluationsPage() {
   // currentEvaluationRefをレンダリング時に同期（useEffectでは遅延する）
   currentEvaluationRef.current = currentEvaluation
 
-  // stateとrefを同時に更新するヘルパー
-  const updateEvaluation = (updater: Evaluation | null | ((prev: Evaluation | null) => Evaluation | null)) => {
-    if (typeof updater === 'function') {
-      setCurrentEvaluation(prev => {
-        const next = updater(prev)
-        currentEvaluationRef.current = next
-        return next
-      })
-    } else {
-      currentEvaluationRef.current = updater
-      setCurrentEvaluation(updater)
-    }
-  }
-
   useEffect(() => {
     if (user) {
       fetchAvailableEvaluations()
@@ -711,7 +697,7 @@ export default function EvaluationsPage() {
     // 最新のコメントを取得するために関数型の更新を使用
     let latestComment = ''
 
-    updateEvaluation(prev => {
+    setCurrentEvaluation(prev => {
       if (!prev) return prev
       const prevItem = prev.items.find(i => i.id === itemId)
       latestComment = prevItem?.comment || ''
@@ -734,7 +720,7 @@ export default function EvaluationsPage() {
   const handleCommentChange = (itemId: string, comment: string) => {
     if (!currentEvaluationRef.current) return
 
-    updateEvaluation(prev => {
+    setCurrentEvaluation(prev => {
       if (!prev) return prev
       return {
         ...prev,
@@ -754,8 +740,7 @@ export default function EvaluationsPage() {
       const latestItem = latest.items.find(i => i.id === itemId)
       const latestGrade = latestItem?.grade || ''
       const latestScore = latestItem?.score || 0
-      const latestComment = latestItem?.comment || ''
-      await saveScore(itemId, latestScore, latestComment, latestGrade)
+      await saveScore(itemId, latestScore, comment, latestGrade)
     }, 500)
   }
 
@@ -764,7 +749,7 @@ export default function EvaluationsPage() {
   const handleOverallCommentChange = (comment: string) => {
     if (!currentEvaluationRef.current) return
 
-    updateEvaluation(prev => {
+    setCurrentEvaluation(prev => {
       if (!prev) return prev
       return { ...prev, overall_comment: comment }
     })
@@ -780,22 +765,19 @@ export default function EvaluationsPage() {
 
   const saveOverallComment = async (comment: string) => {
     const supabase = supabaseRef.current
-    const evalRef = currentEvaluationRef.current
-    if (!evalRef || !supabase) return
+    if (!currentEvaluation || !supabase) return
 
     try {
       const { error } = await supabase
         .from('evaluations')
         .update({ overall_comment: comment })
-        .eq('id', evalRef.id)
+        .eq('id', currentEvaluation.id)
 
       if (error) throw error
     } catch (error) {
       console.error('総評保存エラー:', error)
     }
   }
-
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
     const supabase = supabaseRef.current
@@ -828,8 +810,6 @@ export default function EvaluationsPage() {
         if (insertError) throw insertError
       }
 
-      setSaveError(null)
-
       // ステータスを in_progress に更新（まだ pending の場合）
       if (evalRef.status === 'pending') {
         await supabase
@@ -837,9 +817,8 @@ export default function EvaluationsPage() {
           .update({ status: 'in_progress' })
           .eq('id', evalRef.id)
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('スコア保存エラー:', error)
-      setSaveError(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
     }
   }
 
@@ -1473,12 +1452,6 @@ export default function EvaluationsPage() {
               </Card>
               )
             })}
-
-            {saveError && (
-              <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm">
-                {saveError}（ページを再読み込みして再度お試しください）
-              </div>
-            )}
 
             <div className="p-6 bg-green-50 rounded-lg">
               <div className="flex justify-between items-center mb-4">
