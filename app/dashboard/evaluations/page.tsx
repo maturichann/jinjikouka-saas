@@ -973,7 +973,85 @@ export default function EvaluationsPage() {
   }
 
   const handleSaveDraft = async () => {
-    alert('変更は自動保存されています')
+    const supabase = supabaseRef.current
+    const evalToSave = currentEvaluationRef.current
+    if (!evalToSave || !supabase) return
+
+    try {
+      setIsSaving(true)
+
+      // デバウンス中のタイマーを全てクリア
+      Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
+      commentTimerRef.current = {}
+      if (overallCommentTimerRef.current) {
+        clearTimeout(overallCommentTimerRef.current)
+        overallCommentTimerRef.current = null
+      }
+
+      // グレードが選択されている全項目を一括保存
+      const itemsToSave = evalToSave.items.filter(item => item.grade && item.grade !== '')
+      let savedCount = 0
+      let failedItems: string[] = []
+
+      for (const item of itemsToSave) {
+        const { error: scoreError } = await supabase
+          .from('evaluation_scores')
+          .upsert({
+            evaluation_id: evalToSave.id,
+            item_id: item.id,
+            score: item.score,
+            comment: item.comment,
+            grade: item.grade
+          }, {
+            onConflict: 'evaluation_id,item_id'
+          })
+
+        if (scoreError) {
+          // フォールバック: DELETE→INSERT
+          await supabase.from('evaluation_scores').delete()
+            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+          const { error: insertError } = await supabase.from('evaluation_scores').insert({
+            evaluation_id: evalToSave.id, item_id: item.id,
+            score: item.score, comment: item.comment, grade: item.grade
+          })
+          if (insertError) {
+            failedItems.push(item.name)
+            continue
+          }
+        }
+        savedCount++
+      }
+
+      // 総評コメントも保存
+      if (evalToSave.overall_comment !== undefined) {
+        await supabase
+          .from('evaluations')
+          .update({ overall_comment: evalToSave.overall_comment })
+          .eq('id', evalToSave.id)
+      }
+
+      // ステータスを in_progress に更新
+      if (evalToSave.status === 'pending') {
+        await supabase
+          .from('evaluations')
+          .update({ status: 'in_progress' })
+          .eq('id', evalToSave.id)
+      }
+
+      if (failedItems.length > 0) {
+        setSaveError(`${failedItems.length}件の保存に失敗: ${failedItems.join('、')}`)
+        alert(`下書き保存: ${savedCount}件保存、${failedItems.length}件失敗\n\n失敗: ${failedItems.join('、')}`)
+      } else {
+        setSaveError(null)
+        alert(`下書き保存完了（${savedCount}/${evalToSave.items.length}項目を保存しました）`)
+      }
+    } catch (error: any) {
+      console.error('下書き保存エラー:', error)
+      setSaveError(`下書き保存に失敗: ${error?.message || '不明なエラー'}`)
+      alert('下書き保存に失敗しました。もう一度お試しください。')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleResubmit = async () => {
@@ -1693,8 +1771,9 @@ export default function EvaluationsPage() {
                     variant="outline"
                     size="lg"
                     onClick={handleSaveDraft}
+                    disabled={isSaving}
                   >
-                    下書き保存
+                    {isSaving ? '保存中...' : '下書き保存'}
                   </Button>
                 </>
               )}
