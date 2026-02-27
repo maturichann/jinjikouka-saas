@@ -869,17 +869,30 @@ export default function EvaluationsPage() {
     const latestEval = currentEvaluationRef.current
     if (!latestEval || !supabase) return
 
-    // 未選択項目のチェック（グレード未選択 かつ 保留でもない項目）
-    const emptyItems = latestEval.items.filter(item => !item.grade || item.grade === '')
-    if (emptyItems.length > 0) {
-      scrollToMissingItem(latestEval.items)
-      alert(`未選択の項目が${emptyItems.length}件あります。グレードを選択するか、保留にしてください。\n\n未選択: ${emptyItems.map(i => i.name).join('、')}`)
+    // 完全未入力の項目をチェック（グレードなし・コメントなし・保留でもない）
+    const untouchedItems = latestEval.items.filter(item =>
+      (!item.grade || item.grade === '') && !item.comment
+    )
+    if (untouchedItems.length > 0) {
+      scrollToMissingItem(untouchedItems)
+      alert(`未入力の項目が${untouchedItems.length}件あります。グレード・コメントのいずれかを入力するか、保留にしてください。\n\n未入力: ${untouchedItems.map(i => i.name).join('、')}`)
       return
     }
 
+    // コメントのみ（グレード未選択）の項目があれば確認
+    const commentOnlyItems = latestEval.items.filter(item =>
+      (!item.grade || item.grade === '') && item.comment
+    )
     const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
-    const holdMsg = holdItems.length > 0 ? `\n（保留: ${holdItems.length}件）` : ''
-    if (!confirm(`評価を提出してもよろしいですか？${holdMsg}`)) {
+
+    let confirmMsg = '評価を提出してもよろしいですか？'
+    if (commentOnlyItems.length > 0) {
+      confirmMsg += `\n\nグレード未選択の項目が${commentOnlyItems.length}件あります（コメントのみ）:\n${commentOnlyItems.map(i => i.name).join('、')}`
+    }
+    if (holdItems.length > 0) {
+      confirmMsg += `\n\n保留: ${holdItems.length}件`
+    }
+    if (!confirm(confirmMsg)) {
       return
     }
 
@@ -1054,23 +1067,30 @@ export default function EvaluationsPage() {
     const latestEval = currentEvaluationRef.current
     if (!latestEval || !supabase || !user) return
 
-    // 保留項目のチェック
+    // 完全未入力の項目をチェック（グレードなし・コメントなし・保留でもない）
+    const untouchedItems = latestEval.items.filter(item =>
+      (!item.grade || item.grade === '') && !item.comment
+    )
+    if (untouchedItems.length > 0) {
+      scrollToMissingItem(untouchedItems)
+      alert(`未入力の項目が${untouchedItems.length}件あります。グレード・コメントのいずれかを入力するか、保留にしてください。\n\n未入力: ${untouchedItems.map(i => i.name).join('、')}`)
+      return
+    }
+
+    // コメントのみ（グレード未選択）の項目があれば確認
+    const commentOnlyItems = latestEval.items.filter(item =>
+      (!item.grade || item.grade === '') && item.comment
+    )
     const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
+
+    let confirmMsg = '評価を再提出してもよろしいですか？'
+    if (commentOnlyItems.length > 0) {
+      confirmMsg += `\n\nグレード未選択の項目が${commentOnlyItems.length}件あります（コメントのみ）:\n${commentOnlyItems.map(i => i.name).join('、')}`
+    }
     if (holdItems.length > 0) {
-      scrollToMissingItem(latestEval.items)
-      alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
-      return
+      confirmMsg += `\n\n保留: ${holdItems.length}件`
     }
-
-    // 全項目にグレードが選択されているか確認
-    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
-    if (!hasAllGrades) {
-      scrollToMissingItem(latestEval.items)
-      alert('全ての評価項目にグレードを選択してください')
-      return
-    }
-
-    if (!confirm('評価を再提出してもよろしいですか？')) {
+    if (!confirm(confirmMsg)) {
       return
     }
 
@@ -1370,7 +1390,7 @@ export default function EvaluationsPage() {
             {(() => {
               const total = currentEvaluation.items.length
               const holdCount = currentEvaluation.items.filter(i => i.grade === 'HOLD').length
-              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '').length
+              const done = currentEvaluation.items.filter(i => (i.grade && i.grade !== '') || i.comment).length
               const pct = total > 0 ? Math.round((done / total) * 100) : 0
               const isComplete = done === total
               return (
@@ -1399,7 +1419,7 @@ export default function EvaluationsPage() {
                       type="button"
                       className="mt-2 text-xs text-orange-600 underline"
                       onClick={() => {
-                        const missing = currentEvaluation.items.find(i => !i.grade || i.grade === '')
+                        const missing = currentEvaluation.items.find(i => (!i.grade || i.grade === '') && !i.comment)
                         if (missing) {
                           document.getElementById(`eval-item-${missing.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                         }
@@ -1453,10 +1473,16 @@ export default function EvaluationsPage() {
 
             {currentEvaluation.items.map((item) => {
               const isHold = item.grade === 'HOLD'
+              const hasGrade = item.grade && item.grade !== '' && item.grade !== 'HOLD'
+              const hasComment = !!item.comment
+              const isUntouched = !hasGrade && !hasComment && !isHold
+              const isCommentOnly = !hasGrade && hasComment && !isHold
               return (
               <Card key={item.id} id={`eval-item-${item.id}`} className={
                 isHold ? 'border-2 border-orange-400 bg-orange-50/30' :
-                (!item.grade || item.grade === '') ? 'border-2 border-red-300 bg-red-50/20' : 'border border-green-200'
+                isUntouched ? 'border-2 border-red-300 bg-red-50/20' :
+                isCommentOnly ? 'border-2 border-yellow-400 bg-yellow-50/20' :
+                'border border-green-200'
               }>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
@@ -1465,8 +1491,10 @@ export default function EvaluationsPage() {
                         {item.name}
                         {isHold ? (
                           <Badge variant="destructive" className="text-xs">保留</Badge>
-                        ) : item.grade && item.grade !== '' ? (
+                        ) : hasGrade ? (
                           <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓</Badge>
+                        ) : isCommentOnly ? (
+                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400">コメントのみ</Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs text-red-500 border-red-300">未入力</Badge>
                         )}
@@ -1661,10 +1689,11 @@ export default function EvaluationsPage() {
 
             {/* 提出前の最終確認 */}
             {(() => {
-              const missing = currentEvaluation.items.filter(i => !i.grade || i.grade === '')
+              const untouched = currentEvaluation.items.filter(i => (!i.grade || i.grade === '') && !i.comment)
+              const commentOnly = currentEvaluation.items.filter(i => (!i.grade || i.grade === '') && i.comment)
               const holds = currentEvaluation.items.filter(i => i.grade === 'HOLD')
-              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '')
-              if (missing.length === 0) {
+              const done = currentEvaluation.items.filter(i => (i.grade && i.grade !== '') || i.comment).length
+              if (untouched.length === 0 && commentOnly.length === 0) {
                 return (
                   <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
                     <p className="text-green-700 font-bold text-center">
@@ -1675,19 +1704,36 @@ export default function EvaluationsPage() {
                 )
               }
               return (
-                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg space-y-2">
-                  <p className="text-red-700 font-bold">
-                    入力状況: {done.length}/{currentEvaluation.items.length}項目完了
+                <div className={`p-4 ${untouched.length > 0 ? 'bg-red-50 border-2 border-red-300' : 'bg-yellow-50 border-2 border-yellow-300'} rounded-lg space-y-2`}>
+                  <p className={`${untouched.length > 0 ? 'text-red-700' : 'text-yellow-700'} font-bold`}>
+                    入力状況: {done}/{currentEvaluation.items.length}項目完了
                   </p>
-                  {missing.length > 0 && (
+                  {untouched.length > 0 && (
                     <div>
-                      <p className="text-red-600 text-sm font-medium">未入力（{missing.length}件）:</p>
+                      <p className="text-red-600 text-sm font-medium">未入力（{untouched.length}件）- 提出にはグレードかコメントが必要:</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {missing.map(item => (
+                        {untouched.map(item => (
                           <button
                             key={item.id}
                             type="button"
                             className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                            onClick={() => document.getElementById(`eval-item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          >
+                            {item.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {commentOnly.length > 0 && (
+                    <div>
+                      <p className="text-yellow-600 text-sm font-medium">コメントのみ（{commentOnly.length}件）- グレード未選択:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {commentOnly.map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200 transition-colors"
                             onClick={() => document.getElementById(`eval-item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                           >
                             {item.name}
