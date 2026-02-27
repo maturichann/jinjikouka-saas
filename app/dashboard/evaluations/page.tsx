@@ -1798,28 +1798,47 @@ export default function EvaluationsPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-2 border-amber-300 bg-amber-50">
+                {/* 総合評価 */}
+                <Card className={
+                  currentEvaluation.overall_grade === 'HOLD' ? 'border-2 border-orange-400 bg-orange-50/30' :
+                  !currentEvaluation.overall_grade ? 'border-2 border-red-300 bg-red-50/20' :
+                  'border border-green-200'
+                }>
                   <CardHeader>
-                    <CardTitle className="text-amber-900">総合評価・最終決定</CardTitle>
-                    <CardDescription>
-                      全ての評価を踏まえた総合評価と最終決定を選択してください
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Label className="font-semibold text-amber-900">総合評価</Label>
-                        {currentEvaluation.overall_grade && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
-                            onClick={() => updateEvaluation(prev => prev ? { ...prev, overall_grade: '' } : prev)}
-                          >
-                            保留（クリア）
-                          </Button>
-                        )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          総合評価
+                          {currentEvaluation.overall_grade === 'HOLD' ? (
+                            <Badge variant="destructive" className="text-xs">保留</Badge>
+                          ) : currentEvaluation.overall_grade ? (
+                            <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓ {currentEvaluation.overall_grade}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-red-500 border-red-300">未選択</Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>全ての評価を踏まえた総合評価を選択してください</CardDescription>
                       </div>
+                      <Button
+                        variant={currentEvaluation.overall_grade === 'HOLD' ? "destructive" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const isHold = currentEvaluation.overall_grade === 'HOLD'
+                          updateEvaluation(prev => prev ? { ...prev, overall_grade: isHold ? '' : 'HOLD' } : prev)
+                        }}
+                        className="shrink-0 text-xs"
+                      >
+                        {currentEvaluation.overall_grade === 'HOLD' ? '保留解除' : '保留'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {currentEvaluation.overall_grade === 'HOLD' ? (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                        <p className="text-red-600 font-semibold">この項目は保留中です</p>
+                        <p className="text-red-500 text-sm mt-1">「保留解除」を押して評価を再開してください</p>
+                      </div>
+                    ) : (
                       <RadioGroup
                         value={currentEvaluation.overall_grade || undefined}
                         onValueChange={(value) => {
@@ -1842,21 +1861,51 @@ export default function EvaluationsPage() {
                           </Label>
                         ))}
                       </RadioGroup>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Label className="font-semibold text-amber-900">最終決定</Label>
-                        {currentEvaluation.final_decision && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
-                            onClick={() => updateEvaluation(prev => prev ? { ...prev, final_decision: '' } : prev)}
-                          >
-                            保留（クリア）
-                          </Button>
-                        )}
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 最終決定 */}
+                <Card className={
+                  currentEvaluation.final_decision === 'HOLD' ? 'border-2 border-orange-400 bg-orange-50/30' :
+                  !currentEvaluation.final_decision ? 'border-2 border-red-300 bg-red-50/20' :
+                  'border border-green-200'
+                }>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          最終決定
+                          {currentEvaluation.final_decision === 'HOLD' ? (
+                            <Badge variant="destructive" className="text-xs">保留</Badge>
+                          ) : currentEvaluation.final_decision ? (
+                            <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓ {currentEvaluation.final_decision}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-red-500 border-red-300">未選択</Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>最終的な評価決定を選択してください</CardDescription>
                       </div>
+                      <Button
+                        variant={currentEvaluation.final_decision === 'HOLD' ? "destructive" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const isHold = currentEvaluation.final_decision === 'HOLD'
+                          updateEvaluation(prev => prev ? { ...prev, final_decision: isHold ? '' : 'HOLD' } : prev)
+                        }}
+                        className="shrink-0 text-xs"
+                      >
+                        {currentEvaluation.final_decision === 'HOLD' ? '保留解除' : '保留'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {currentEvaluation.final_decision === 'HOLD' ? (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                        <p className="text-red-600 font-semibold">この項目は保留中です</p>
+                        <p className="text-red-500 text-sm mt-1">「保留解除」を押して評価を再開してください</p>
+                      </div>
+                    ) : (
                       <RadioGroup
                         value={currentEvaluation.final_decision || undefined}
                         onValueChange={(value) => {
@@ -1879,7 +1928,7 @@ export default function EvaluationsPage() {
                           </Label>
                         ))}
                       </RadioGroup>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </>
