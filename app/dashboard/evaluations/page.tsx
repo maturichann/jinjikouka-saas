@@ -852,7 +852,7 @@ export default function EvaluationsPage() {
   }
 
   const scrollToMissingItem = (items: EvaluationItem[]) => {
-    const missing = items.find(item => !item.grade || item.grade === '' || item.grade === 'HOLD')
+    const missing = items.find(item => !item.grade || item.grade === '')
     if (missing) {
       const el = document.getElementById(`eval-item-${missing.id}`)
       if (el) {
@@ -868,23 +868,17 @@ export default function EvaluationsPage() {
     const latestEval = currentEvaluationRef.current
     if (!latestEval || !supabase) return
 
-    // 保留項目のチェック
+    // 未選択項目のチェック（グレード未選択 かつ 保留でもない項目）
+    const emptyItems = latestEval.items.filter(item => !item.grade || item.grade === '')
+    if (emptyItems.length > 0) {
+      scrollToMissingItem(latestEval.items)
+      alert(`未選択の項目が${emptyItems.length}件あります。グレードを選択するか、保留にしてください。\n\n未選択: ${emptyItems.map(i => i.name).join('、')}`)
+      return
+    }
+
     const holdItems = latestEval.items.filter(item => item.grade === 'HOLD')
-    if (holdItems.length > 0) {
-      scrollToMissingItem(latestEval.items)
-      alert(`保留中の項目が${holdItems.length}件あります。全ての項目を評価してから提出してください。\n\n保留中: ${holdItems.map(i => i.name).join('、')}`)
-      return
-    }
-
-    // 全項目にグレードが選択されているか確認
-    const hasAllGrades = latestEval.items.every(item => item.grade && item.grade !== '' && item.grade !== 'HOLD')
-    if (!hasAllGrades) {
-      scrollToMissingItem(latestEval.items)
-      alert('全ての評価項目にグレードを選択してください')
-      return
-    }
-
-    if (!confirm('評価を提出してもよろしいですか？提出後は編集できません。')) {
+    const holdMsg = holdItems.length > 0 ? `\n（保留: ${holdItems.length}件）` : ''
+    if (!confirm(`評価を提出してもよろしいですか？${holdMsg}`)) {
       return
     }
 
@@ -1390,8 +1384,8 @@ export default function EvaluationsPage() {
             {/* 進捗バー */}
             {(() => {
               const total = currentEvaluation.items.length
-              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '' && i.grade !== 'HOLD').length
               const holdCount = currentEvaluation.items.filter(i => i.grade === 'HOLD').length
+              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '').length
               const pct = total > 0 ? Math.round((done / total) * 100) : 0
               const isComplete = done === total
               return (
@@ -1420,7 +1414,7 @@ export default function EvaluationsPage() {
                       type="button"
                       className="mt-2 text-xs text-orange-600 underline"
                       onClick={() => {
-                        const missing = currentEvaluation.items.find(i => !i.grade || i.grade === '' || i.grade === 'HOLD')
+                        const missing = currentEvaluation.items.find(i => !i.grade || i.grade === '')
                         if (missing) {
                           document.getElementById(`eval-item-${missing.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                         }
@@ -1684,11 +1678,14 @@ export default function EvaluationsPage() {
             {(() => {
               const missing = currentEvaluation.items.filter(i => !i.grade || i.grade === '')
               const holds = currentEvaluation.items.filter(i => i.grade === 'HOLD')
-              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '' && i.grade !== 'HOLD')
-              if (missing.length === 0 && holds.length === 0) {
+              const done = currentEvaluation.items.filter(i => i.grade && i.grade !== '')
+              if (missing.length === 0) {
                 return (
                   <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
-                    <p className="text-green-700 font-bold text-center">全{currentEvaluation.items.length}項目の入力が完了しています</p>
+                    <p className="text-green-700 font-bold text-center">
+                      全{currentEvaluation.items.length}項目の入力が完了しています
+                      {holds.length > 0 && `（うち保留${holds.length}件）`}
+                    </p>
                   </div>
                 )
               }
@@ -1765,15 +1762,7 @@ export default function EvaluationsPage() {
                     className="flex-1"
                     disabled={isSaving}
                   >
-                    評価を提出
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={handleSaveDraft}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? '保存中...' : '下書き保存'}
+                    {isSaving ? '保存中...' : '評価を提出'}
                   </Button>
                 </>
               )}
