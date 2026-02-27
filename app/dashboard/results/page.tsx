@@ -821,11 +821,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                       <TableCell>{getStatusBadge(evaluation.status)}</TableCell>
                       <TableCell>
                         {isCompleted(evaluation.status) ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <span className="font-semibold">{evaluation.totalScore.toFixed(1)}</span>
                             {evaluation.items && evaluation.items.some(item => !item.grade || item.grade === '') && (
                               <span className="text-red-500 text-xs" title={`未評価: ${evaluation.items.filter(item => !item.grade || item.grade === '').map(i => i.name).join('、')}`}>
                                 ⚠{evaluation.items.filter(item => !item.grade || item.grade === '').length}
+                              </span>
+                            )}
+                            {evaluation.items && evaluation.items.some(item => item.grade === 'HOLD') && (
+                              <span className="text-orange-500 text-xs font-medium" title={`保留: ${evaluation.items.filter(item => item.grade === 'HOLD').map(i => i.name).join('、')}`}>
+                                保留{evaluation.items.filter(item => item.grade === 'HOLD').length}
                               </span>
                             )}
                           </div>
