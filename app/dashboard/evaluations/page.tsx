@@ -800,8 +800,9 @@ export default function EvaluationsPage() {
   const saveScore = async (itemId: string, score: number, comment: string, grade: string) => {
     const supabase = supabaseRef.current
     const evalRef = currentEvaluationRef.current
-    // グレードが選択されていない場合のみ保存しない
-    if (!evalRef || !grade || !supabase) return
+    // グレードもコメントもない場合は保存しない
+    if (!evalRef || !supabase) return
+    if (!grade && !comment) return
 
     try {
       // スコアを保存
@@ -900,7 +901,7 @@ export default function EvaluationsPage() {
       // 各スコアを個別に保存（エラーチェック付き）
       const saveResults = await Promise.all(
         evalToSave.items
-          .filter(item => item.grade)
+          .filter(item => item.grade || item.comment)
           .map(async (item) => {
             const { error } = await supabase
               .from('evaluation_scores')
@@ -909,7 +910,7 @@ export default function EvaluationsPage() {
                 item_id: item.id,
                 score: item.score,
                 comment: item.comment,
-                grade: item.grade
+                grade: item.grade || ''
               }, {
                 onConflict: 'evaluation_id,item_id'
               })
@@ -928,7 +929,7 @@ export default function EvaluationsPage() {
             .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
           const { error: insertError } = await supabase.from('evaluation_scores').insert({
             evaluation_id: evalToSave.id, item_id: item.id,
-            score: item.score, comment: item.comment, grade: item.grade
+            score: item.score, comment: item.comment, grade: item.grade || ''
           })
           if (insertError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
         }
@@ -1091,7 +1092,7 @@ export default function EvaluationsPage() {
       // 各スコアを個別に保存（エラーチェック付き）
       const saveResults = await Promise.all(
         evalToSave.items
-          .filter(item => item.grade)
+          .filter(item => item.grade || item.comment)
           .map(async (item) => {
             const { error } = await supabase
               .from('evaluation_scores')
@@ -1100,7 +1101,7 @@ export default function EvaluationsPage() {
                 item_id: item.id,
                 score: item.score,
                 comment: item.comment,
-                grade: item.grade
+                grade: item.grade || ''
               }, {
                 onConflict: 'evaluation_id,item_id'
               })
@@ -1112,32 +1113,16 @@ export default function EvaluationsPage() {
       const failedSaves = saveResults.filter(r => r.error)
       if (failedSaves.length > 0) {
         console.error('スコア保存エラー:', failedSaves)
-        // RLSエラーの場合はDELETE→INSERTにフォールバック
         for (const failed of failedSaves) {
           const item = evalToSave.items.find(i => i.name === failed.itemName)
           if (!item) continue
-
-          // 既存レコードを削除
-          await supabase
-            .from('evaluation_scores')
-            .delete()
-            .eq('evaluation_id', evalToSave.id)
-            .eq('item_id', item.id)
-
-          // 新しいレコードを挿入
-          const { error: insertError } = await supabase
-            .from('evaluation_scores')
-            .insert({
-              evaluation_id: evalToSave.id,
-              item_id: item.id,
-              score: item.score,
-              comment: item.comment,
-              grade: item.grade
-            })
-
-          if (insertError) {
-            throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
-          }
+          await supabase.from('evaluation_scores').delete()
+            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+          const { error: insertError } = await supabase.from('evaluation_scores').insert({
+            evaluation_id: evalToSave.id, item_id: item.id,
+            score: item.score, comment: item.comment, grade: item.grade || ''
+          })
+          if (insertError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
         }
       }
 
