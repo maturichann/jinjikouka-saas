@@ -1459,17 +1459,36 @@ export default function EvaluationsPage() {
               </div>
             )}
 
-            {/* 保留項目サマリー */}
-            {currentEvaluation.items.some(i => i.grade === 'HOLD') && (
-              <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-center gap-2">
-                <span className="text-red-600 font-bold text-sm">
-                  保留中: {currentEvaluation.items.filter(i => i.grade === 'HOLD').length}件
-                </span>
-                <span className="text-red-500 text-xs">
-                  ({currentEvaluation.items.filter(i => i.grade === 'HOLD').map(i => i.name).join('、')})
-                </span>
-              </div>
-            )}
+            {/* 保留・コメントのみ項目サマリー */}
+            {(() => {
+              const holdItems = currentEvaluation.items.filter(i => i.grade === 'HOLD')
+              const commentOnlyItems = currentEvaluation.items.filter(i => (!i.grade || i.grade === '') && i.comment)
+              if (holdItems.length === 0 && commentOnlyItems.length === 0) return null
+              return (
+                <div className="space-y-2">
+                  {holdItems.length > 0 && (
+                    <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-center gap-2">
+                      <span className="text-red-600 font-bold text-sm">
+                        保留中: {holdItems.length}件
+                      </span>
+                      <span className="text-red-500 text-xs">
+                        ({holdItems.map(i => i.name).join('、')})
+                      </span>
+                    </div>
+                  )}
+                  {commentOnlyItems.length > 0 && (
+                    <div className="p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg flex items-center gap-2">
+                      <span className="text-yellow-700 font-bold text-sm">
+                        コメントのみ（グレード未選択）: {commentOnlyItems.length}件
+                      </span>
+                      <span className="text-yellow-600 text-xs">
+                        ({commentOnlyItems.map(i => i.name).join('、')})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {currentEvaluation.items.map((item) => {
               const isHold = item.grade === 'HOLD'
