@@ -1807,7 +1807,19 @@ export default function EvaluationsPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
-                      <Label className="mb-3 block font-semibold text-amber-900">総合評価</Label>
+                      <div className="flex items-center justify-between mb-3">
+                        <Label className="font-semibold text-amber-900">総合評価</Label>
+                        {currentEvaluation.overall_grade && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                            onClick={() => updateEvaluation(prev => prev ? { ...prev, overall_grade: '' } : prev)}
+                          >
+                            保留（クリア）
+                          </Button>
+                        )}
+                      </div>
                       <RadioGroup
                         value={currentEvaluation.overall_grade || undefined}
                         onValueChange={(value) => {
@@ -1832,7 +1844,19 @@ export default function EvaluationsPage() {
                       </RadioGroup>
                     </div>
                     <div>
-                      <Label className="mb-3 block font-semibold text-amber-900">最終決定</Label>
+                      <div className="flex items-center justify-between mb-3">
+                        <Label className="font-semibold text-amber-900">最終決定</Label>
+                        {currentEvaluation.final_decision && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                            onClick={() => updateEvaluation(prev => prev ? { ...prev, final_decision: '' } : prev)}
+                          >
+                            保留（クリア）
+                          </Button>
+                        )}
+                      </div>
                       <RadioGroup
                         value={currentEvaluation.final_decision || undefined}
                         onValueChange={(value) => {
