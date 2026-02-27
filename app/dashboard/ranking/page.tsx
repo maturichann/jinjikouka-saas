@@ -19,6 +19,8 @@ type RankingEntry = {
   previousScore?: number
   scoreChange?: number
   overall_comment?: string
+  overall_grade?: string
+  final_decision?: string
 }
 
 export default function RankingPage() {
@@ -186,7 +188,9 @@ export default function RankingPage() {
               rank: 0, // 後で設定
               previousScore,
               scoreChange,
-              overall_comment: evaluation.overall_comment || ''
+              overall_comment: evaluation.overall_comment || '',
+              overall_grade: evaluation.overall_grade || '',
+              final_decision: evaluation.final_decision || ''
             }
           })
         )
@@ -341,6 +345,8 @@ export default function RankingPage() {
                     <th className="text-left p-3 font-semibold">部署</th>
                     <th className="text-right p-3 font-semibold">総合スコア</th>
                     <th className="text-center p-3 font-semibold">前期比</th>
+                    <th className="text-center p-3 font-semibold">総合評価</th>
+                    <th className="text-center p-3 font-semibold">最終決定</th>
                     <th className="text-left p-3 font-semibold">総評</th>
                   </tr>
                 </thead>
@@ -364,6 +370,40 @@ export default function RankingPage() {
                         <div className="flex justify-center">
                           {getScoreChangeBadge(entry.scoreChange)}
                         </div>
+                      </td>
+                      <td className="p-3 text-center">
+                        {entry.overall_grade && entry.overall_grade !== 'HOLD' ? (
+                          <Badge className={
+                            entry.overall_grade === 'A' ? 'bg-blue-600' :
+                            entry.overall_grade === 'B' ? 'bg-green-600' :
+                            entry.overall_grade === 'C' ? 'bg-yellow-600' :
+                            entry.overall_grade === 'D' ? 'bg-orange-600' :
+                            entry.overall_grade === 'E' ? 'bg-red-600' : ''
+                          }>
+                            {entry.overall_grade}
+                          </Badge>
+                        ) : entry.overall_grade === 'HOLD' ? (
+                          <Badge variant="outline" className="text-orange-600 border-orange-300">保留</Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        {entry.final_decision && entry.final_decision !== 'HOLD' ? (
+                          <Badge className={
+                            entry.final_decision === 'A' ? 'bg-blue-600' :
+                            entry.final_decision === 'B' ? 'bg-green-600' :
+                            entry.final_decision === 'C' ? 'bg-yellow-600' :
+                            entry.final_decision === 'D' ? 'bg-orange-600' :
+                            entry.final_decision === 'E' ? 'bg-red-600' : ''
+                          }>
+                            {entry.final_decision}
+                          </Badge>
+                        ) : entry.final_decision === 'HOLD' ? (
+                          <Badge variant="outline" className="text-orange-600 border-orange-300">保留</Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </td>
                       <td className="p-3 text-sm text-gray-700 max-w-xs">
                         {entry.overall_comment ? (
