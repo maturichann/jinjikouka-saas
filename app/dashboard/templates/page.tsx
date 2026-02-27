@@ -34,6 +34,7 @@ type EvaluationItem = {
   weight: number
   criteria: string
   category?: string
+  subcategory?: string
   grade_scores?: { A: number; B: number; C: number; D: number; E: number }
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
   hide_criteria_from_self?: boolean
@@ -63,6 +64,7 @@ export default function TemplatesPage() {
     weight: 1,
     criteria: "",
     category: "",
+    subcategory: "",
     grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
     grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
     hide_criteria_from_self: false,
@@ -161,6 +163,7 @@ export default function TemplatesPage() {
           weight: newItem.weight,
           criteria: newItem.criteria,
           category: newItem.category || null,
+          subcategory: newItem.subcategory || null,
           grade_scores: newItem.grade_scores,
           grade_criteria: newItem.grade_criteria,
           order_index: currentItemsCount,
@@ -177,6 +180,7 @@ export default function TemplatesPage() {
         weight: 1,
         criteria: "",
         category: "",
+        subcategory: "",
         grade_scores: { A: 5, B: 4, C: 3, D: 2, E: 1 },
         grade_criteria: { A: "", B: "", C: "", D: "", E: "" },
         hide_criteria_from_self: false,
@@ -227,6 +231,7 @@ export default function TemplatesPage() {
           weight: editingItem.weight,
           criteria: editingItem.criteria,
           category: editingItem.category || null,
+          subcategory: editingItem.subcategory || null,
           grade_scores: editingItem.grade_scores,
           grade_criteria: editingItem.grade_criteria,
           hide_criteria_from_self: editingItem.hide_criteria_from_self,
@@ -472,6 +477,24 @@ export default function TemplatesPage() {
                         </p>
                       </div>
                       <div>
+                        <Label htmlFor="item-subcategory">サブカテゴリー</Label>
+                        <Input
+                          id="item-subcategory"
+                          list="subcategories"
+                          placeholder="例: 自主性、責任感、チームワーク"
+                          value={newItem.subcategory}
+                          onChange={(e) => setNewItem({ ...newItem, subcategory: e.target.value })}
+                        />
+                        <datalist id="subcategories">
+                          {selectedTemplate && Array.from(new Set(selectedTemplate.items.map(i => (i as any).subcategory).filter(Boolean))).map(sub => (
+                            <option key={sub} value={sub} />
+                          ))}
+                        </datalist>
+                        <p className="text-xs text-gray-500 mt-1">
+                          行動評価などでサブカテゴリーが必要な場合に入力（任意）
+                        </p>
+                      </div>
+                      <div>
                         <Label htmlFor="item-name">項目名</Label>
                         <Input
                           id="item-name"
@@ -587,6 +610,7 @@ export default function TemplatesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>カテゴリー</TableHead>
+                    <TableHead>サブカテゴリー</TableHead>
                     <TableHead>項目名</TableHead>
                     <TableHead>説明</TableHead>
                     <TableHead>グレード配点</TableHead>
@@ -613,6 +637,7 @@ export default function TemplatesPage() {
                                 {category}
                               </TableCell>
                             )}
+                            <TableCell className="text-sm text-gray-600">{(item as any).subcategory || '-'}</TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.description}</TableCell>
                             <TableCell>
@@ -667,7 +692,7 @@ export default function TemplatesPage() {
                   })()}
                   {template.items.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-gray-500">
+                      <TableCell colSpan={8} className="text-center text-gray-500">
                         評価項目が登録されていません
                       </TableCell>
                     </TableRow>
@@ -737,6 +762,24 @@ export default function TemplatesPage() {
                 </datalist>
                 <p className="text-xs text-gray-500 mt-1">
                   既存のカテゴリーから選択するか、新しいカテゴリー名を入力
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="edit-item-subcategory">サブカテゴリー</Label>
+                <Input
+                  id="edit-item-subcategory"
+                  list="edit-subcategories"
+                  placeholder="例: 自主性、責任感、チームワーク"
+                  value={editingItem?.subcategory || ""}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, subcategory: e.target.value })}
+                />
+                <datalist id="edit-subcategories">
+                  {selectedTemplate && Array.from(new Set(selectedTemplate.items.map(i => (i as any).subcategory).filter(Boolean))).map(sub => (
+                    <option key={sub} value={sub} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-gray-500 mt-1">
+                  行動評価などでサブカテゴリーが必要な場合に入力（任意）
                 </p>
               </div>
               <div>

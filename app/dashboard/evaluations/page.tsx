@@ -35,6 +35,8 @@ type EvaluationItem = {
   grade_criteria?: { A: string; B: string; C: string; D: string; E: string }
   hide_criteria_from_self?: boolean
   enabled_grades?: GradeKey[]
+  category?: string
+  subcategory?: string
 }
 
 type Evaluation = {
@@ -48,6 +50,8 @@ type Evaluation = {
   status: 'pending' | 'in_progress' | 'submitted'
   items: EvaluationItem[]
   overall_comment?: string
+  overall_grade?: string
+  final_decision?: string
 }
 
 type ReferenceScore = {
@@ -374,7 +378,9 @@ export default function EvaluationsPage() {
           grade_scores: item.grade_scores || { A: 5, B: 4, C: 3, D: 2, E: 1 },
           grade_criteria: item.grade_criteria || { A: '', B: '', C: '', D: '', E: '' },
           hide_criteria_from_self: item.hide_criteria_from_self || false,
-          enabled_grades: item.enabled_grades || ['A', 'B', 'C', 'D', 'E']
+          enabled_grades: item.enabled_grades || ['A', 'B', 'C', 'D', 'E'],
+          category: item.category || '',
+          subcategory: item.subcategory || ''
         }
       })
 
@@ -387,7 +393,9 @@ export default function EvaluationsPage() {
         stage: evalData.stage,
         status: evalData.status,
         items: itemsWithScores,
-        overall_comment: evalData.overall_comment || ''
+        overall_comment: evalData.overall_comment || '',
+        overall_grade: evalData.overall_grade || '',
+        final_decision: evalData.final_decision || ''
       })
 
       // 前段階の評価データを取得（参照用）
@@ -948,11 +956,21 @@ export default function EvaluationsPage() {
         }
       }
 
-      // 総評コメントも保存
+      // 総評コメント・総合評価・最終決定も保存
+      const evalUpdate: Record<string, any> = {}
       if (evalToSave.overall_comment !== undefined) {
+        evalUpdate.overall_comment = evalToSave.overall_comment
+      }
+      if (evalToSave.overall_grade !== undefined) {
+        evalUpdate.overall_grade = evalToSave.overall_grade
+      }
+      if (evalToSave.final_decision !== undefined) {
+        evalUpdate.final_decision = evalToSave.final_decision
+      }
+      if (Object.keys(evalUpdate).length > 0) {
         await supabase
           .from('evaluations')
-          .update({ overall_comment: evalToSave.overall_comment })
+          .update(evalUpdate)
           .eq('id', evalToSave.id)
       }
 
@@ -1030,11 +1048,21 @@ export default function EvaluationsPage() {
         savedCount++
       }
 
-      // 総評コメントも保存
+      // 総評コメント・総合評価・最終決定も保存
+      const draftUpdate: Record<string, any> = {}
       if (evalToSave.overall_comment !== undefined) {
+        draftUpdate.overall_comment = evalToSave.overall_comment
+      }
+      if (evalToSave.overall_grade !== undefined) {
+        draftUpdate.overall_grade = evalToSave.overall_grade
+      }
+      if (evalToSave.final_decision !== undefined) {
+        draftUpdate.final_decision = evalToSave.final_decision
+      }
+      if (Object.keys(draftUpdate).length > 0) {
         await supabase
           .from('evaluations')
-          .update({ overall_comment: evalToSave.overall_comment })
+          .update(draftUpdate)
           .eq('id', evalToSave.id)
       }
 
@@ -1146,20 +1174,24 @@ export default function EvaluationsPage() {
         }
       }
 
-      // 総評コメントも保存
+      // 総評コメント・総合評価・最終決定も保存
+      const evalUpdate: Record<string, any> = {
+        submitted_at: new Date().toISOString(),
+        evaluator_id: user!.id
+      }
       if (evalToSave.overall_comment !== undefined) {
-        await supabase
-          .from('evaluations')
-          .update({ overall_comment: evalToSave.overall_comment })
-          .eq('id', evalToSave.id)
+        evalUpdate.overall_comment = evalToSave.overall_comment
+      }
+      if (evalToSave.overall_grade !== undefined) {
+        evalUpdate.overall_grade = evalToSave.overall_grade
+      }
+      if (evalToSave.final_decision !== undefined) {
+        evalUpdate.final_decision = evalToSave.final_decision
       }
 
       const { error } = await supabase
         .from('evaluations')
-        .update({
-          submitted_at: new Date().toISOString(),
-          evaluator_id: user!.id
-        })
+        .update(evalUpdate)
         .eq('id', evalToSave.id)
 
       if (error) throw error
@@ -1490,146 +1522,206 @@ export default function EvaluationsPage() {
               )
             })()}
 
-            {currentEvaluation.items.map((item) => {
-              const isHold = item.grade === 'HOLD'
-              const hasGrade = item.grade && item.grade !== '' && item.grade !== 'HOLD'
-              const hasComment = !!item.comment
-              const isUntouched = !hasGrade && !hasComment && !isHold
-              const isCommentOnly = !hasGrade && hasComment && !isHold
-              return (
-              <Card key={item.id} id={`eval-item-${item.id}`} className={
-                isHold ? 'border-2 border-orange-400 bg-orange-50/30' :
-                isUntouched ? 'border-2 border-red-300 bg-red-50/20' :
-                isCommentOnly ? 'border-2 border-yellow-400 bg-yellow-50/20' :
-                'border border-green-200'
-              }>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {item.name}
-                        {isHold ? (
-                          <Badge variant="destructive" className="text-xs">保留</Badge>
-                        ) : hasGrade ? (
-                          <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓</Badge>
-                        ) : isCommentOnly ? (
-                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400">コメントのみ</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-red-500 border-red-300">未入力</Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
-                    </div>
-                    <Button
-                      variant={isHold ? "destructive" : "outline"}
-                      size="sm"
-                      onClick={() => handleHoldToggle(item.id)}
-                      className="shrink-0 text-xs"
-                    >
-                      {isHold ? '保留解除' : '保留'}
-                    </Button>
-                  </div>
-                  {/* 採点基準はMG以上（mg, final, admin）のみ表示 */}
-                  {item.criteria && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
-                    <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
-                      <p className="font-semibold text-blue-900 mb-1">採点基準:</p>
-                      <pre className="text-blue-800 whitespace-pre-line font-sans">{item.criteria}</pre>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {showReference && referenceEvaluations.length > 0 && (
-                    <div className="space-y-2">
-                      {referenceEvaluations.map(ref => {
-                        const refScore = ref.items[item.id]
-                        if (!refScore) return null
-                        const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : ref.stage === 'prev_final' ? 'amber' : 'red'
-                        return (
-                          <div key={ref.stage} className={`p-3 rounded-lg border`}
-                            style={{
-                              backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : stageColor === 'amber' ? '#fffbeb' : '#fef2f2',
-                              borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : stageColor === 'amber' ? '#fde68a' : '#fecaca'
-                            }}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-bold"
-                                style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : stageColor === 'amber' ? '#b45309' : '#dc2626' }}
-                              >
-                                {ref.stageLabel}
-                              </span>
-                              <span className="text-sm font-semibold">
-                                {refScore.grade}評価 - {refScore.score}点
-                              </span>
-                            </div>
-                            {refScore.comment && (
-                              <p className="text-xs text-gray-600 mt-1 whitespace-pre-line">{refScore.comment}</p>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+            {(() => {
+              const circledNumbers = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳']
+              // カテゴリ別にグループ化
+              const categoryOrder = ['業績評価', '職務評価', '行動評価', '幹部評価']
+              const grouped: Record<string, EvaluationItem[]> = {}
+              for (const item of currentEvaluation.items) {
+                const cat = item.category || '未分類'
+                if (!grouped[cat]) grouped[cat] = []
+                grouped[cat].push(item)
+              }
+              // カテゴリ順にソート（定義順→その他）
+              const sortedCategories = Object.keys(grouped).sort((a, b) => {
+                const ai = categoryOrder.indexOf(a)
+                const bi = categoryOrder.indexOf(b)
+                if (ai === -1 && bi === -1) return 0
+                if (ai === -1) return 1
+                if (bi === -1) return -1
+                return ai - bi
+              })
 
-                  {isHold ? (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-                      <p className="text-red-600 font-semibold">この項目は保留中です</p>
-                      <p className="text-red-500 text-sm mt-1">「保留解除」を押して評価を再開してください</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <Label className="mb-3 block">
-                          評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
-                        </Label>
-                        <RadioGroup
-                          value={item.grade || undefined}
-                          onValueChange={(value) => handleGradeChange(item.id, value)}
-                          className="space-y-3"
-                        >
-                          {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
-                            <Label
-                              key={grade}
-                              htmlFor={`${item.id}-${grade}`}
-                              className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
-                            >
-                              <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
-                              <div className="flex-1">
-                                <div className="font-semibold text-base">
-                                  {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
-                                </div>
-                                {/* 評価基準はMG以上（mg, final）のみ表示 */}
-                                {item.grade_criteria?.[grade as GradeKey] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
-                                  <div className="text-sm text-gray-600 mt-1">
-                                    {item.grade_criteria[grade as GradeKey]}
-                                  </div>
-                                )}
-                              </div>
-                            </Label>
-                          ))}
-                        </RadioGroup>
-                        {item.grade && (
-                          <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
-                            <p className="text-sm font-semibold text-green-700 mb-1">選択中: {item.grade}評価</p>
-                            <p className="text-2xl font-bold text-green-600">{item.score}点</p>
+              return sortedCategories.map(category => {
+                const items = grouped[category]
+                // 行動評価はサブカテゴリでさらにグループ化
+                const hasSubcategories = category === '行動評価' && items.some(i => i.subcategory)
+                let subcategoryGroups: Record<string, EvaluationItem[]> = {}
+                if (hasSubcategories) {
+                  for (const item of items) {
+                    const sub = item.subcategory || ''
+                    if (!subcategoryGroups[sub]) subcategoryGroups[sub] = []
+                    subcategoryGroups[sub].push(item)
+                  }
+                }
+
+                let itemCounter = 0
+
+                const renderItem = (item: EvaluationItem) => {
+                  itemCounter++
+                  const num = circledNumbers[itemCounter - 1] || `(${itemCounter})`
+                  const isHold = item.grade === 'HOLD'
+                  const hasGrade = item.grade && item.grade !== '' && item.grade !== 'HOLD'
+                  const hasComment = !!item.comment
+                  const isUntouched = !hasGrade && !hasComment && !isHold
+                  const isCommentOnly = !hasGrade && hasComment && !isHold
+                  return (
+                    <Card key={item.id} id={`eval-item-${item.id}`} className={
+                      isHold ? 'border-2 border-orange-400 bg-orange-50/30' :
+                      isUntouched ? 'border-2 border-red-300 bg-red-50/20' :
+                      isCommentOnly ? 'border-2 border-yellow-400 bg-yellow-50/20' :
+                      'border border-green-200'
+                    }>
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <span className="text-blue-600">{num}</span>
+                              {item.name}
+                              {isHold ? (
+                                <Badge variant="destructive" className="text-xs">保留</Badge>
+                              ) : hasGrade ? (
+                                <Badge className="text-xs bg-green-100 text-green-700 border-green-300">✓</Badge>
+                              ) : isCommentOnly ? (
+                                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400">コメントのみ</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-red-500 border-red-300">未入力</Badge>
+                              )}
+                            </CardTitle>
+                            <CardDescription>{item.description} (配点: {item.weight}点)</CardDescription>
+                          </div>
+                          <Button
+                            variant={isHold ? "destructive" : "outline"}
+                            size="sm"
+                            onClick={() => handleHoldToggle(item.id)}
+                            className="shrink-0 text-xs"
+                          >
+                            {isHold ? '保留解除' : '保留'}
+                          </Button>
+                        </div>
+                        {item.criteria && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
+                          <div className="mt-2 p-3 bg-blue-50 rounded text-sm">
+                            <p className="font-semibold text-blue-900 mb-1">採点基準:</p>
+                            <pre className="text-blue-800 whitespace-pre-line font-sans">{item.criteria}</pre>
                           </div>
                         )}
-                      </div>
-                      <div>
-                        <Label htmlFor={`comment-${item.id}`}>コメント</Label>
-                        <Textarea
-                          id={`comment-${item.id}`}
-                          placeholder="評価の理由や詳細を記入してください"
-                          value={item.comment}
-                          onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-              )
-            })}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {showReference && referenceEvaluations.length > 0 && (
+                          <div className="space-y-2">
+                            {referenceEvaluations.map(ref => {
+                              const refScore = ref.items[item.id]
+                              if (!refScore) return null
+                              const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : ref.stage === 'prev_final' ? 'amber' : 'red'
+                              return (
+                                <div key={ref.stage} className={`p-3 rounded-lg border`}
+                                  style={{
+                                    backgroundColor: stageColor === 'blue' ? '#eff6ff' : stageColor === 'green' ? '#f0fdf4' : stageColor === 'purple' ? '#faf5ff' : stageColor === 'amber' ? '#fffbeb' : '#fef2f2',
+                                    borderColor: stageColor === 'blue' ? '#bfdbfe' : stageColor === 'green' ? '#bbf7d0' : stageColor === 'purple' ? '#e9d5ff' : stageColor === 'amber' ? '#fde68a' : '#fecaca'
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-bold"
+                                      style={{ color: stageColor === 'blue' ? '#1d4ed8' : stageColor === 'green' ? '#15803d' : stageColor === 'purple' ? '#7e22ce' : stageColor === 'amber' ? '#b45309' : '#dc2626' }}
+                                    >
+                                      {ref.stageLabel}
+                                    </span>
+                                    <span className="text-sm font-semibold">
+                                      {refScore.grade}評価 - {refScore.score}点
+                                    </span>
+                                  </div>
+                                  {refScore.comment && (
+                                    <p className="text-xs text-gray-600 mt-1 whitespace-pre-line">{refScore.comment}</p>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {isHold ? (
+                          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                            <p className="text-red-600 font-semibold">この項目は保留中です</p>
+                            <p className="text-red-500 text-sm mt-1">「保留解除」を押して評価を再開してください</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <Label className="mb-3 block">
+                                評価グレード（{(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).length}段階）
+                              </Label>
+                              <RadioGroup
+                                value={item.grade || undefined}
+                                onValueChange={(value) => handleGradeChange(item.id, value)}
+                                className="space-y-3"
+                              >
+                                {(item.enabled_grades || ['A', 'B', 'C', 'D', 'E']).map((grade) => (
+                                  <Label
+                                    key={grade}
+                                    htmlFor={`${item.id}-${grade}`}
+                                    className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
+                                  >
+                                    <RadioGroupItem value={grade} id={`${item.id}-${grade}`} className="mt-1" />
+                                    <div className="flex-1">
+                                      <div className="font-semibold text-base">
+                                        {grade}評価 - {item.grade_scores?.[grade as GradeKey] || 0}点
+                                      </div>
+                                      {item.grade_criteria?.[grade as GradeKey] && currentEvaluation?.stage !== 'self' && currentEvaluation?.stage !== 'manager' && (
+                                        <div className="text-sm text-gray-600 mt-1">
+                                          {item.grade_criteria[grade as GradeKey]}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </Label>
+                                ))}
+                              </RadioGroup>
+                              {item.grade && (
+                                <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
+                                  <p className="text-sm font-semibold text-green-700 mb-1">選択中: {item.grade}評価</p>
+                                  <p className="text-2xl font-bold text-green-600">{item.score}点</p>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <Label htmlFor={`comment-${item.id}`}>コメント</Label>
+                              <Textarea
+                                id={`comment-${item.id}`}
+                                placeholder="評価の理由や詳細を記入してください"
+                                value={item.comment}
+                                onChange={(e) => handleCommentChange(item.id, e.target.value)}
+                                rows={3}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                }
+
+                return (
+                  <div key={category} className="space-y-4">
+                    <div className="p-3 bg-indigo-100 border-l-4 border-indigo-500 rounded-r-lg">
+                      <h3 className="text-lg font-bold text-indigo-900">{category}</h3>
+                    </div>
+                    {hasSubcategories ? (
+                      Object.entries(subcategoryGroups).map(([sub, subItems]) => (
+                        <div key={sub} className="space-y-4 ml-2">
+                          {sub && (
+                            <div className="p-2 bg-purple-50 border-l-4 border-purple-400 rounded-r-lg">
+                              <h4 className="text-base font-semibold text-purple-800">{sub}</h4>
+                            </div>
+                          )}
+                          {subItems.map(renderItem)}
+                        </div>
+                      ))
+                    ) : (
+                      items.map(renderItem)
+                    )}
+                  </div>
+                )
+              })
+            })()}
 
             {saveError && (
               <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm">
@@ -1687,23 +1779,86 @@ export default function EvaluationsPage() {
             )}
 
             {currentEvaluation.stage === 'final' && (
-              <Card className="border-2 border-red-200 bg-red-50">
-                <CardHeader>
-                  <CardTitle className="text-red-900">総評コメント</CardTitle>
-                  <CardDescription>
-                    全ての評価を踏まえた総合的な評価コメントを記入してください
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="本評価期間における総合的な評価、強み、改善点、今後の期待など"
-                    value={currentEvaluation.overall_comment || ''}
-                    onChange={(e) => handleOverallCommentChange(e.target.value)}
-                    rows={6}
-                    className="bg-white"
-                  />
-                </CardContent>
-              </Card>
+              <>
+                <Card className="border-2 border-red-200 bg-red-50">
+                  <CardHeader>
+                    <CardTitle className="text-red-900">総評コメント</CardTitle>
+                    <CardDescription>
+                      全ての評価を踏まえた総合的な評価コメントを記入してください
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      placeholder="本評価期間における総合的な評価、強み、改善点、今後の期待など"
+                      value={currentEvaluation.overall_comment || ''}
+                      onChange={(e) => handleOverallCommentChange(e.target.value)}
+                      rows={6}
+                      className="bg-white"
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-amber-300 bg-amber-50">
+                  <CardHeader>
+                    <CardTitle className="text-amber-900">総合評価・最終決定</CardTitle>
+                    <CardDescription>
+                      全ての評価を踏まえた総合評価と最終決定を選択してください
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <Label className="mb-3 block font-semibold text-amber-900">総合評価</Label>
+                      <RadioGroup
+                        value={currentEvaluation.overall_grade || undefined}
+                        onValueChange={(value) => {
+                          updateEvaluation(prev => prev ? { ...prev, overall_grade: value } : prev)
+                        }}
+                        className="flex flex-wrap gap-3"
+                      >
+                        {['A', 'B', 'C', 'D', 'E'].map((grade) => (
+                          <Label
+                            key={grade}
+                            htmlFor={`overall-grade-${grade}`}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                              currentEvaluation.overall_grade === grade
+                                ? 'border-amber-500 bg-amber-100 text-amber-900'
+                                : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50'
+                            }`}
+                          >
+                            <RadioGroupItem value={grade} id={`overall-grade-${grade}`} />
+                            <span className="font-bold text-lg">{grade}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label className="mb-3 block font-semibold text-amber-900">最終決定</Label>
+                      <RadioGroup
+                        value={currentEvaluation.final_decision || undefined}
+                        onValueChange={(value) => {
+                          updateEvaluation(prev => prev ? { ...prev, final_decision: value } : prev)
+                        }}
+                        className="flex flex-wrap gap-3"
+                      >
+                        {['A', 'B', 'C', 'D', 'E'].map((grade) => (
+                          <Label
+                            key={grade}
+                            htmlFor={`final-decision-${grade}`}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                              currentEvaluation.final_decision === grade
+                                ? 'border-red-500 bg-red-100 text-red-900'
+                                : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
+                            }`}
+                          >
+                            <RadioGroupItem value={grade} id={`final-decision-${grade}`} />
+                            <span className="font-bold text-lg">{grade}</span>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* 提出前の最終確認 */}
