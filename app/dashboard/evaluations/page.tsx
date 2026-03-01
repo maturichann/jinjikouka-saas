@@ -309,6 +309,7 @@ export default function EvaluationsPage() {
     try {
       setIsLoading(true)
       setIsEditMode(forEdit)
+      setReferenceEvaluations([])
 
       // 評価の詳細を取得
       const { data: evalData, error: evalError } = await supabase
