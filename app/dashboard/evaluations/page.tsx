@@ -626,11 +626,9 @@ export default function EvaluationsPage() {
   // stateとrefを同時に更新するヘルパー
   const updateEvaluation = (updater: Evaluation | null | ((prev: Evaluation | null) => Evaluation | null)) => {
     if (typeof updater === 'function') {
-      setCurrentEvaluation(prev => {
-        const next = updater(prev)
-        currentEvaluationRef.current = next
-        return next
-      })
+      const next = updater(currentEvaluationRef.current)
+      currentEvaluationRef.current = next
+      setCurrentEvaluation(next)
     } else {
       currentEvaluationRef.current = updater
       setCurrentEvaluation(updater)
@@ -663,7 +661,7 @@ export default function EvaluationsPage() {
 
     if (isCurrentlyHold) {
       // 保留解除: gradeとscoreをクリア
-      setCurrentEvaluation(prev => {
+      updateEvaluation(prev => {
         if (!prev) return prev
         return {
           ...prev,
@@ -686,11 +684,10 @@ export default function EvaluationsPage() {
         delete commentTimerRef.current[itemId]
       }
 
-      let latestComment = ''
-      setCurrentEvaluation(prev => {
+      // refから最新のコメントを取得
+      const latestComment = item.comment || ''
+      updateEvaluation(prev => {
         if (!prev) return prev
-        const prevItem = prev.items.find(i => i.id === itemId)
-        latestComment = prevItem?.comment || ''
         return {
           ...prev,
           items: prev.items.map(i =>
@@ -718,21 +715,16 @@ export default function EvaluationsPage() {
       delete commentTimerRef.current[itemId]
     }
 
-    // 最新のコメントを取得するために関数型の更新を使用
-    let latestComment = ''
+    // refから最新のコメントを取得（updateEvaluationが即座にrefを更新するため常に最新）
+    const latestComment = item.comment || ''
 
     updateEvaluation(prev => {
       if (!prev) return prev
-      const prevItem = prev.items.find(i => i.id === itemId)
-      latestComment = prevItem?.comment || ''
-
-      const updatedItems = prev.items.map(i =>
-        i.id === itemId ? { ...i, grade, score } : i
-      )
-
       return {
         ...prev,
-        items: updatedItems,
+        items: prev.items.map(i =>
+          i.id === itemId ? { ...i, grade, score } : i
+        ),
         status: prev.status === 'pending' ? 'in_progress' : prev.status
       }
     })
