@@ -1465,32 +1465,41 @@ export default function EvaluationsPage() {
               )
             })()}
 
-            {referenceEvaluations.length > 0 && (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm font-medium">参照評価:</span>
-                  {referenceEvaluations.map(ref => (
-                    <span key={ref.stage} className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      ref.stage === 'self' ? 'bg-blue-100 text-blue-700' :
-                      ref.stage === 'manager' ? 'bg-green-100 text-green-700' :
-                      ref.stage === 'mg' ? 'bg-purple-100 text-purple-700' :
-                      ref.stage === 'prev_final' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {ref.stageLabel}: {ref.totalScore.toFixed(1)}点
-                    </span>
-                  ))}
+            {(() => {
+              // 現在のステージに合った参照のみ表示
+              const stageOrder: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+              const currentStageNum = stageOrder[currentEvaluation.stage] || 0
+              const allowedRefs = referenceEvaluations.filter(ref =>
+                ref.stage === 'prev_final' || (stageOrder[ref.stage] || 0) < currentStageNum
+              )
+              if (allowedRefs.length === 0) return null
+              return (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-sm font-medium">参照評価:</span>
+                    {allowedRefs.map(ref => (
+                      <span key={ref.stage} className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        ref.stage === 'self' ? 'bg-blue-100 text-blue-700' :
+                        ref.stage === 'manager' ? 'bg-green-100 text-green-700' :
+                        ref.stage === 'mg' ? 'bg-purple-100 text-purple-700' :
+                        ref.stage === 'prev_final' ? 'bg-amber-100 text-amber-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {ref.stageLabel}: {ref.totalScore.toFixed(1)}点
+                      </span>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReference(!showReference)}
+                    className="text-xs"
+                  >
+                    {showReference ? '参照を隠す' : '参照を表示'}
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowReference(!showReference)}
-                  className="text-xs"
-                >
-                  {showReference ? '参照を隠す' : '参照を表示'}
-                </Button>
-              </div>
-            )}
+              )
+            })()}
 
             {/* 保留・コメントのみ項目サマリー */}
             {(() => {
@@ -1610,7 +1619,10 @@ export default function EvaluationsPage() {
                       <CardContent className="space-y-4">
                         {showReference && referenceEvaluations.length > 0 && (
                           <div className="space-y-2">
-                            {referenceEvaluations.map(ref => {
+                            {referenceEvaluations.filter(ref => {
+                              const so: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+                              return ref.stage === 'prev_final' || (so[ref.stage] || 0) < (so[currentEvaluation.stage] || 0)
+                            }).map(ref => {
                               const refScore = ref.items[item.id]
                               if (!refScore) return null
                               const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : ref.stage === 'prev_final' ? 'amber' : 'red'
@@ -1735,30 +1747,45 @@ export default function EvaluationsPage() {
                 <h3 className="text-lg font-semibold">総合評価</h3>
                 <p className="text-3xl font-bold text-green-700">{calculateTotalScore()}</p>
               </div>
-              {showReference && referenceEvaluations.length > 0 && (
-                <div className="flex flex-wrap gap-3 mb-3">
-                  {referenceEvaluations.map(ref => (
-                    <div key={ref.stage} className="flex items-center gap-1.5 text-sm">
-                      <span className={`w-2 h-2 rounded-full`}
-                        style={{
-                          backgroundColor: ref.stage === 'self' ? '#3b82f6' : ref.stage === 'manager' ? '#22c55e' : ref.stage === 'mg' ? '#a855f7' : '#ef4444'
-                        }}
-                      />
-                      <span className="text-gray-600">{ref.stageLabel}:</span>
-                      <span className="font-semibold">{ref.totalScore.toFixed(1)}点</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {showReference && (() => {
+                const so: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+                const cn = so[currentEvaluation.stage] || 0
+                const filtered = referenceEvaluations.filter(ref =>
+                  ref.stage === 'prev_final' || (so[ref.stage] || 0) < cn
+                )
+                if (filtered.length === 0) return null
+                return (
+                  <div className="flex flex-wrap gap-3 mb-3">
+                    {filtered.map(ref => (
+                      <div key={ref.stage} className="flex items-center gap-1.5 text-sm">
+                        <span className={`w-2 h-2 rounded-full`}
+                          style={{
+                            backgroundColor: ref.stage === 'self' ? '#3b82f6' : ref.stage === 'manager' ? '#22c55e' : ref.stage === 'mg' ? '#a855f7' : '#ef4444'
+                          }}
+                        />
+                        <span className="text-gray-600">{ref.stageLabel}:</span>
+                        <span className="font-semibold">{ref.totalScore.toFixed(1)}点</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               <p className="text-sm text-gray-600">
                 各項目の評価点を合計した総合スコアです
               </p>
             </div>
 
-            {showReference && referenceEvaluations.some(ref => ref.overall_comment) && (
+            {showReference && (() => {
+              const so: Record<string, number> = { self: 1, manager: 2, mg: 3, final: 4 }
+              const cn = so[currentEvaluation.stage] || 0
+              const filtered = referenceEvaluations.filter(ref =>
+                ref.overall_comment && (ref.stage === 'prev_final' || (so[ref.stage] || 0) < cn)
+              )
+              if (filtered.length === 0) return null
+              return (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">参照: 総評コメント</h3>
-                {referenceEvaluations.filter(ref => ref.overall_comment).map(ref => {
+                {filtered.map(ref => {
                   const stageColor = ref.stage === 'self' ? 'blue' : ref.stage === 'manager' ? 'green' : ref.stage === 'mg' ? 'purple' : 'red'
                   return (
                     <div key={ref.stage} className="p-4 rounded-lg border"
@@ -1777,7 +1804,8 @@ export default function EvaluationsPage() {
                   )
                 })}
               </div>
-            )}
+              )
+            })()}
 
             {currentEvaluation.stage === 'final' && (
               <>
