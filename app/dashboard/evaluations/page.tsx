@@ -229,7 +229,8 @@ export default function EvaluationsPage() {
 
       setAvailableEvaluations(evaluationsWithItems)
 
-      if (evaluationsWithItems.length > 0 && !currentEvaluation) {
+      // editIdがある場合は自動ロードしない（editIdのロードを優先）
+      if (evaluationsWithItems.length > 0 && !currentEvaluation && !editId) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         loadEvaluation(evaluationsWithItems[0].id)
       }
