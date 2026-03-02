@@ -52,6 +52,7 @@ type Evaluation = {
   overall_comment?: string
   overall_grade?: string
   final_decision?: string
+  totalScore?: number
 }
 
 type ReferenceScore = {
@@ -593,6 +594,18 @@ export default function EvaluationsPage() {
 
       if (periodsError) throw periodsError
 
+      // スコアを一括取得
+      const evalIds = evaluationsData.map((e: any) => e.id)
+      const { data: scoresData } = await supabase
+        .from('evaluation_scores')
+        .select('evaluation_id, score')
+        .in('evaluation_id', evalIds)
+
+      const scoreMap = new Map<string, number>()
+      for (const s of scoresData || []) {
+        scoreMap.set(s.evaluation_id, (scoreMap.get(s.evaluation_id) || 0) + Number(s.score))
+      }
+
       // データをマージ
       const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
       const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
@@ -610,7 +623,8 @@ export default function EvaluationsPage() {
           period_name: period?.name || '',
           stage: evaluation.stage,
           status: evaluation.status,
-          items: []
+          items: [],
+          totalScore: scoreMap.get(evaluation.id)
         }
       })
 
@@ -1354,23 +1368,32 @@ export default function EvaluationsPage() {
                       </Select>
                     )
                   })()}
-                  <Select
-                    value={currentEvaluation?.id || ''}
-                    onValueChange={loadSubmittedEvaluation}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="評価を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {submittedEvaluations
-                        .filter(e => departmentFilter === 'all' || e.evaluatee_department === departmentFilter)
-                        .map(evaluation => (
-                          <SelectItem key={evaluation.id} value={evaluation.id}>
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {submittedEvaluations
+                      .filter(e => departmentFilter === 'all' || e.evaluatee_department === departmentFilter)
+                      .map(evaluation => (
+                        <button
+                          key={evaluation.id}
+                          onClick={() => loadSubmittedEvaluation(evaluation.id)}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm flex justify-between items-center gap-2 transition-colors ${
+                            currentEvaluation?.id === evaluation.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'hover:bg-muted'
+                          }`}
+                        >
+                          <span className="truncate">
                             {evaluation.period_name} - {evaluation.evaluatee_name} ({getStageLabel(evaluation.stage)})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                          </span>
+                          {evaluation.totalScore != null && (
+                            <span className={`shrink-0 font-medium ${
+                              currentEvaluation?.id === evaluation.id ? 'text-primary-foreground' : 'text-muted-foreground'
+                            }`}>
+                              {evaluation.totalScore}点
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
                 </>
               )}
             </CardContent>
