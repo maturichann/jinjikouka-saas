@@ -31,16 +31,16 @@ export default function RankingPage() {
   const [isLoading, setIsLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient>>(createClient())
 
-  // 管理者チェック
+  // 管理者・MGチェック
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && user.role !== 'admin' && user.role !== 'mg') {
       window.location.href = '/dashboard'
     }
   }, [user])
 
   // 評価期間リストを取得
   useEffect(() => {
-    if (!user || user.role !== 'admin') return
+    if (!user || (user.role !== 'admin' && user.role !== 'mg')) return
 
     const supabase = supabaseRef.current
     if (!supabase) return
@@ -77,7 +77,7 @@ export default function RankingPage() {
 
   // ランキングデータを取得
   useEffect(() => {
-    if (!user || user.role !== 'admin') return
+    if (!user || (user.role !== 'admin' && user.role !== 'mg')) return
 
     const supabase = supabaseRef.current
     if (!supabase) return
@@ -107,13 +107,41 @@ export default function RankingPage() {
           return
         }
 
+        // MGの場合、管轄店舗のユーザーIDを取得
+        let managedUserIds: string[] | null = null
+        if (user?.role === 'mg') {
+          const managedDepts = user.managed_departments || []
+          if (managedDepts.length === 0) {
+            setRankings([])
+            return
+          }
+          const { data: deptUsers, error: deptError } = await client
+            .from('users')
+            .select('id')
+            .in('department', managedDepts)
+
+          if (deptError) throw deptError
+
+          managedUserIds = (deptUsers || []).map(u => u.id)
+          if (managedUserIds.length === 0) {
+            setRankings([])
+            return
+          }
+        }
+
         // 最終評価のデータを取得
-        const { data: evaluations, error } = await client
+        let evaluationsQuery = client
           .from('evaluations')
           .select('*')
           .eq('period_id', selectedPeriod)
           .eq('stage', 'final')
           .eq('status', 'submitted')
+
+        if (managedUserIds) {
+          evaluationsQuery = evaluationsQuery.in('evaluatee_id', managedUserIds)
+        }
+
+        const { data: evaluations, error } = await evaluationsQuery
 
         if (!isActive) return
 
@@ -275,7 +303,7 @@ export default function RankingPage() {
     return <Badge variant="outline">{rank}位</Badge>
   }
 
-  if (!user || user.role !== 'admin') {
+  if (!user || (user.role !== 'admin' && user.role !== 'mg')) {
     return null
   }
 
@@ -333,6 +361,9 @@ export default function RankingPage() {
             <CardTitle>ランキング結果</CardTitle>
             <CardDescription>
               {rankings.length}名のランキング（最終評価の総合スコア順）
+              {user?.role === 'mg' && user.managed_departments?.length > 0 && (
+                <span className="block mt-1">管轄: {user.managed_departments.join('、')}</span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
