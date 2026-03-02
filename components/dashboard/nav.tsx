@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 
-const navItems = [
+const navItems: { title: string; href: string; roles?: string[] }[] = [
   {
     title: "ダッシュボード",
     href: "/dashboard",
@@ -34,7 +34,7 @@ const navItems = [
   {
     title: "評価ランキング",
     href: "/dashboard/ranking",
-    adminOnly: true,
+    roles: ['admin', 'mg'],
   },
   {
     title: "使い方ガイド",
@@ -49,8 +49,8 @@ export function DashboardNav() {
   return (
     <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
-        // 管理者専用メニューは管理者のみ表示
-        if (item.adminOnly && user?.role !== 'admin') {
+        // ロール制限があるメニューはロールチェック
+        if (item.roles && !item.roles.includes(user?.role || '')) {
           return null
         }
 
