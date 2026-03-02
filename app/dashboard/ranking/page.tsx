@@ -436,9 +436,9 @@ export default function RankingPage() {
                           <span className="text-gray-400 text-sm">-</span>
                         )}
                       </td>
-                      <td className="p-3 text-sm text-gray-700 max-w-xs">
+                      <td className="p-3 text-sm text-gray-700">
                         {entry.overall_comment ? (
-                          <p className="whitespace-pre-line line-clamp-3">{entry.overall_comment}</p>
+                          <p className="whitespace-pre-line">{entry.overall_comment}</p>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
