@@ -1443,7 +1443,7 @@ export default function EvaluationsPage() {
                             <span className={`shrink-0 font-medium ${
                               currentEvaluation?.id === evaluation.id ? 'text-primary-foreground' : 'text-muted-foreground'
                             }`}>
-                              {evaluation.totalScore}点
+                              {evaluation.totalScore.toFixed(1)}点
                             </span>
                           )}
                         </button>
