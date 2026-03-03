@@ -243,8 +243,8 @@ export default function ResultsPage() {
           // order_indexで並び替え
           items.sort((a: any, b: any) => a.order_index - b.order_index)
 
-          // 単純合計を計算
-          const totalScore = items.reduce((sum: number, item: any) => sum + (item.score || 0), 0)
+          // 単純合計を計算（浮動小数点対策）
+          const totalScore = Math.round(items.reduce((sum: number, item: any) => sum + (item.score || 0), 0) * 10) / 10
 
           return {
             id: evaluation.id,

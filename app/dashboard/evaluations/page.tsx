@@ -298,6 +298,7 @@ export default function EvaluationsPage() {
         }
         totalScore += s.score || 0
       }
+      totalScore = Math.round(totalScore * 10) / 10
 
       return {
         stage: 'prev_final',
@@ -445,6 +446,7 @@ export default function EvaluationsPage() {
             }
             totalScore += s.score || 0
           }
+          totalScore = Math.round(totalScore * 10) / 10
 
           refs.push({
             stage: prevEval.stage,
@@ -610,7 +612,7 @@ export default function EvaluationsPage() {
 
       const scoreMap = new Map<string, number>()
       for (const s of scoresData || []) {
-        scoreMap.set(s.evaluation_id, (scoreMap.get(s.evaluation_id) || 0) + Number(s.score))
+        scoreMap.set(s.evaluation_id, Math.round(((scoreMap.get(s.evaluation_id) || 0) + Number(s.score)) * 10) / 10)
       }
 
       // データをマージ

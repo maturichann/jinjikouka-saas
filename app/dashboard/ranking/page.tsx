@@ -180,7 +180,7 @@ export default function RankingPage() {
               .select('score')
               .eq('evaluation_id', evaluation.id)
 
-            const totalScore = scores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0
+            const totalScore = Math.round((scores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0) * 10) / 10
 
             // 前年度のスコアを取得
             let previousScore: number | undefined
@@ -202,8 +202,8 @@ export default function RankingPage() {
                   .select('score')
                   .eq('evaluation_id', previousEval.id)
 
-                previousScore = previousScores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0
-                scoreChange = totalScore - previousScore
+                previousScore = Math.round((previousScores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0) * 10) / 10
+                scoreChange = Math.round((totalScore - previousScore) * 10) / 10
               }
             }
 
