@@ -11,6 +11,8 @@ export type EvaluationPDFData = {
     totalScore: number
     submittedAt: string
     overall_comment?: string
+    overall_grade?: string
+    final_decision?: string
     items?: {
       name: string
       description: string
@@ -125,6 +127,8 @@ function buildEvaluationHTML(
           <div style="text-align: right;">
             <div style="font-size: 10px; opacity: 0.85;">${evaluation.stage}</div>
             <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">${evaluation.totalScore.toFixed(1)}<span style="font-size: 12px; margin-left: 2px;">点</span></div>
+            ${evaluation.final_decision ? `<div style="font-size: 26px; font-weight: bold; letter-spacing: 2px; margin-top: 2px;">${evaluation.final_decision}</div>` : ''}
+            ${evaluation.overall_grade ? `<div style="font-size: 16px; font-weight: bold; opacity: 0.9; margin-top: 1px;">総合: ${evaluation.overall_grade}</div>` : ''}
           </div>
         </div>
       </div>

@@ -43,6 +43,8 @@ type EvaluationResult = {
   totalScore: number
   submittedAt: string
   overall_comment?: string
+  overall_grade?: string
+  final_decision?: string
   evaluator_id?: string
   items?: {
     name: string
@@ -257,6 +259,8 @@ export default function ResultsPage() {
             submittedAt: evaluation.submitted_at ?
               new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
             overall_comment: evaluation.overall_comment || '',
+            overall_grade: evaluation.overall_grade || '',
+            final_decision: evaluation.final_decision || '',
             items,
             evaluator_id: evaluation.evaluator_id
           }
@@ -421,6 +425,8 @@ export default function ResultsPage() {
       totalScore: e.totalScore,
       submittedAt: e.submittedAt,
       overall_comment: undefined,
+      overall_grade: e.overall_grade || undefined,
+      final_decision: e.final_decision || undefined,
       items: e.items?.map(item => ({ ...item, comment: '' }))
     }))
   }
