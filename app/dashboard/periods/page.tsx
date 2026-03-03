@@ -76,6 +76,8 @@ export default function PeriodsPage() {
   }>>([])
   const [selectedEvaluationIds, setSelectedEvaluationIds] = useState<string[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [copyFromPeriodId, setCopyFromPeriodId] = useState<string>("")
   const [newPeriod, setNewPeriod] = useState({
     name: "",
     start_date: "",
@@ -178,7 +180,56 @@ export default function PeriodsPage() {
 
       if (error) throw error
 
+      const newPeriodId = data?.[0]?.id
+
+      // 前期メンバーコピー処理
+      if (copyFromPeriodId && newPeriodId) {
+        try {
+          // コピー元期間の全evaluationからevaluatee_idとstageを取得
+          const { data: sourceEvals, error: sourceError } = await supabase
+            .from('evaluations')
+            .select('evaluatee_id, evaluator_id, stage')
+            .eq('period_id', copyFromPeriodId)
+
+          if (sourceError) throw sourceError
+
+          if (sourceEvals && sourceEvals.length > 0) {
+            // アクティブユーザーのみフィルタ
+            const { data: activeUsers, error: activeError } = await supabase
+              .from('users')
+              .select('id')
+              .eq('status', 'active')
+
+            if (activeError) throw activeError
+
+            const activeUserIds = new Set((activeUsers || []).map(u => u.id))
+
+            const evaluationsToCreate = sourceEvals
+              .filter(e => activeUserIds.has(e.evaluatee_id))
+              .map(e => ({
+                period_id: newPeriodId,
+                evaluatee_id: e.evaluatee_id,
+                evaluator_id: e.stage === 'self' ? e.evaluatee_id : null,
+                stage: e.stage,
+                status: 'pending'
+              }))
+
+            if (evaluationsToCreate.length > 0) {
+              const { error: insertError } = await supabase
+                .from('evaluations')
+                .insert(evaluationsToCreate)
+
+              if (insertError) throw insertError
+            }
+          }
+        } catch (copyError) {
+          console.error('メンバーコピーエラー:', copyError)
+          alert('期間は作成されましたが、メンバーのコピーに失敗しました。手動で割り当ててください。')
+        }
+      }
+
       setNewPeriod({ name: "", start_date: "", end_date: "", template_id: "", period_summary: "" })
+      setCopyFromPeriodId("")
       setIsDialogOpen(false)
       fetchPeriods()
     } catch (error) {
@@ -229,6 +280,68 @@ export default function PeriodsPage() {
     } catch (error) {
       console.error('評価期間の削除エラー:', error)
       alert('評価期間の削除に失敗しました')
+    }
+  }
+
+  const handleCompletePeriod = async (period: Period) => {
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    try {
+      setIsCompleting(true)
+
+      // 期間内の全final評価を取得
+      const { data: finalEvals, error: finalError } = await supabase
+        .from('evaluations')
+        .select('id, evaluatee_id, status')
+        .eq('period_id', period.id)
+        .eq('stage', 'final')
+
+      if (finalError) throw finalError
+
+      if (!finalEvals || finalEvals.length === 0) {
+        alert('この期間には最終評価が割り当てられていません')
+        return
+      }
+
+      // 未提出の最終評価を確認
+      const notSubmitted = finalEvals.filter(e => e.status !== 'submitted' && e.status !== 'confirmed')
+
+      if (notSubmitted.length > 0) {
+        // 未提出者の名前を取得
+        const userIds = notSubmitted.map(e => e.evaluatee_id)
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds)
+
+        const usersMap = new Map(usersData?.map(u => [u.id, u.name]) || [])
+        const names = notSubmitted.map(e => usersMap.get(e.evaluatee_id) || '不明').join('、')
+
+        alert(`以下の${notSubmitted.length}名の最終評価が未提出です:\n${names}\n\n全ての最終評価を提出してから確定してください。`)
+        return
+      }
+
+      // 確認ダイアログ
+      if (!confirm(`「${period.name}」の評価を確定しますか？\n\n確定すると全ての評価がロックされ、編集できなくなります。この操作は取り消せません。`)) {
+        return
+      }
+
+      // 期間ステータスを completed に更新
+      const { error } = await supabase
+        .from('evaluation_periods')
+        .update({ status: 'completed' })
+        .eq('id', period.id)
+
+      if (error) throw error
+
+      alert('評価期間を確定しました')
+      fetchPeriods()
+    } catch (error) {
+      console.error('評価確定エラー:', error)
+      alert('評価の確定に失敗しました')
+    } finally {
+      setIsCompleting(false)
     }
   }
 
@@ -572,6 +685,21 @@ export default function PeriodsPage() {
                 </select>
               </div>
               <div>
+                <Label htmlFor="copy-from">前期メンバーをコピー</Label>
+                <select
+                  id="copy-from"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={copyFromPeriodId}
+                  onChange={(e) => setCopyFromPeriodId(e.target.value)}
+                >
+                  <option value="">コピーしない</option>
+                  {periods.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">選択した期間のメンバー構成を新期間にコピーします</p>
+              </div>
+              <div>
                 <Label htmlFor="period_summary">期間全体の総評（任意）</Label>
                 <Textarea
                   id="period_summary"
@@ -626,6 +754,16 @@ export default function PeriodsPage() {
                       >
                         割り当て管理
                       </Button>
+                      {period.status === 'active' && (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => handleCompletePeriod(period)}
+                          disabled={isCompleting}
+                        >
+                          {isCompleting ? '確定中...' : '評価を確定'}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

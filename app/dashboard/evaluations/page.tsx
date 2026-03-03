@@ -195,11 +195,11 @@ export default function EvaluationsPage() {
 
       if (usersError) throw usersError
 
-      // 評価期間情報を別途取得
+      // 評価期間情報を別途取得（statusも取得）
       const periodIds = [...new Set(evaluationsData.map(e => e.period_id))]
       const { data: periodsData, error: periodsError } = await supabase
         .from('evaluation_periods')
-        .select('id, name')
+        .select('id, name, status')
         .in('id', periodIds)
 
       if (periodsError) throw periodsError
@@ -208,8 +208,15 @@ export default function EvaluationsPage() {
       const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
       const periodsMap = new Map(periodsData?.map(p => [p.id, p]) || [])
 
-      // 削除されたユーザーの評価を除外
-      const validEvaluations = evaluationsData.filter(e => usersMap.has(e.evaluatee_id))
+      // 確定済み期間のIDセット
+      const completedPeriodIds = new Set(
+        (periodsData || []).filter(p => p.status === 'completed').map(p => p.id)
+      )
+
+      // 削除されたユーザーの評価を除外 + 確定済み期間の評価を除外
+      const validEvaluations = evaluationsData.filter(e =>
+        usersMap.has(e.evaluatee_id) && !completedPeriodIds.has(e.period_id)
+      )
 
       const evaluationsWithItems = validEvaluations.map(evaluation => {
         const evaluatee = usersMap.get(evaluation.evaluatee_id)
@@ -660,7 +667,31 @@ export default function EvaluationsPage() {
   useEffect(() => {
     if (editId && !editIdProcessed && !isLoading) {
       setActiveTab('submitted')
-      loadEvaluation(editId, true)
+      // 期間ステータスを確認して編集可否を決定
+      const checkAndLoad = async () => {
+        const supabase = supabaseRef.current
+        if (!supabase) return
+
+        const { data: evalData } = await supabase
+          .from('evaluations')
+          .select('period_id')
+          .eq('id', editId)
+          .single()
+
+        let forEdit = true
+        if (evalData) {
+          const { data: periodData } = await supabase
+            .from('evaluation_periods')
+            .select('status')
+            .eq('id', evalData.period_id)
+            .single()
+
+          forEdit = periodData?.status !== 'completed'
+        }
+
+        loadEvaluation(editId, forEdit)
+      }
+      checkAndLoad()
       setEditIdProcessed(true)
     }
   }, [editId, editIdProcessed, isLoading, loadEvaluation])
@@ -1219,7 +1250,29 @@ export default function EvaluationsPage() {
   }
 
   const loadSubmittedEvaluation = async (evaluationId: string) => {
-    await loadEvaluation(evaluationId, true)
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    // 評価のperiod_idから期間ステータスを確認
+    const { data: evalData } = await supabase
+      .from('evaluations')
+      .select('period_id')
+      .eq('id', evaluationId)
+      .single()
+
+    if (evalData) {
+      const { data: periodData } = await supabase
+        .from('evaluation_periods')
+        .select('status')
+        .eq('id', evalData.period_id)
+        .single()
+
+      // 確定済み期間なら閲覧専用
+      const forEdit = periodData?.status !== 'completed'
+      await loadEvaluation(evaluationId, forEdit)
+    } else {
+      await loadEvaluation(evaluationId, true)
+    }
   }
 
   const getStageLabel = (stage: string) => {
