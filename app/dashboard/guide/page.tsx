@@ -77,6 +77,84 @@ export default function GuidePage() {
         </CardContent>
       </Card>
 
+      {/* 評価結果の閲覧権限 */}
+      <Card className="border-purple-200 bg-purple-50">
+        <CardHeader>
+          <CardTitle className="text-purple-900">評価結果の閲覧権限</CardTitle>
+          <CardDescription className="text-purple-700">役割ごとに見える範囲が異なります</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-3">項目</th>
+                  <th className="text-center py-2 px-3">管理者</th>
+                  <th className="text-center py-2 px-3">MG評価者</th>
+                  <th className="text-center py-2 px-3">店長評価者</th>
+                  <th className="text-center py-2 px-3">スタッフ</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-700">
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">閲覧対象</td>
+                  <td className="text-center">全員</td>
+                  <td className="text-center">管轄店舗</td>
+                  <td className="text-center">自部署</td>
+                  <td className="text-center">自分のみ</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">見える評価ステージ</td>
+                  <td className="text-center">全ステージ</td>
+                  <td className="text-center">全ステージ</td>
+                  <td className="text-center">全ステージ</td>
+                  <td className="text-center text-xs">本人評価 +<br />確定済み最終評価</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">評価スコア・グレード</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">項目ごとのコメント</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center text-xs">❌<br />(確定済み最終評価)</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">総評コメント</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">✅</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">❌</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 px-3 font-semibold">ランキング</td>
+                  <td className="text-center">全員</td>
+                  <td className="text-center">管轄店舗</td>
+                  <td className="text-center">❌</td>
+                  <td className="text-center">❌</td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-3 font-semibold">最終評価の閲覧に確定が必要？</td>
+                  <td className="text-center">不要</td>
+                  <td className="text-center">不要</td>
+                  <td className="text-center">不要</td>
+                  <td className="text-center font-semibold text-red-600">必要</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="p-3 bg-white rounded-lg border border-purple-200 text-sm text-purple-800 space-y-1">
+            <p><strong>※ 確定とは:</strong> 管理者が評価結果ページで最終評価の「確定」ボタンを押す操作です</p>
+            <p><strong>※ スタッフ:</strong> 確定された最終評価のスコア・グレードは見えますが、総評コメントと項目コメントは非表示です</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ========== 管理者向け ========== */}
       <div className="pt-4">
         <h2 className="text-2xl font-bold border-b-4 border-red-500 pb-2 inline-block">管理者向けガイド</h2>
