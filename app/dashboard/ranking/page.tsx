@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { FileDown, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { FileDown, TrendingUp, TrendingDown, Minus, Save, Loader2 } from "lucide-react"
 import { generateRankingPDF } from "@/lib/pdf-export"
 
 type RankingEntry = {
@@ -30,6 +31,8 @@ export default function RankingPage() {
   const [rankings, setRankings] = useState<RankingEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient>>(createClient())
+  const [memos, setMemos] = useState<Record<string, string>>({})
+  const [memoSaving, setMemoSaving] = useState<Record<string, boolean>>({})
 
   // 管理者・MGチェック
   useEffect(() => {
@@ -232,6 +235,22 @@ export default function RankingPage() {
         })
 
         setRankings(sorted)
+
+        // 管理者の場合、メモを取得
+        if (user?.role === 'admin' && sorted.length > 0) {
+          const { data: memosData } = await client
+            .from('ranking_memos')
+            .select('evaluatee_id, memo')
+            .eq('period_id', selectedPeriod)
+
+          if (isActive && memosData) {
+            const memosMap: Record<string, string> = {}
+            memosData.forEach((m: any) => {
+              memosMap[m.evaluatee_id] = m.memo
+            })
+            setMemos(memosMap)
+          }
+        }
       } catch (error) {
         console.error('ランキング取得エラー:', error)
         setRankings([])
@@ -248,6 +267,33 @@ export default function RankingPage() {
       isActive = false
     }
   }, [selectedPeriod, user])
+
+  // メモ保存
+  const saveMemo = async (evaluateeId: string) => {
+    if (!user || user.role !== 'admin' || !selectedPeriod) return
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    setMemoSaving(prev => ({ ...prev, [evaluateeId]: true }))
+    try {
+      const memoText = memos[evaluateeId] || ''
+      const { error } = await supabase
+        .from('ranking_memos')
+        .upsert({
+          period_id: selectedPeriod,
+          evaluatee_id: evaluateeId,
+          memo: memoText,
+          created_by: user.id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'period_id,evaluatee_id' })
+
+      if (error) throw error
+    } catch (error) {
+      console.error('メモ保存エラー:', error)
+    } finally {
+      setMemoSaving(prev => ({ ...prev, [evaluateeId]: false }))
+    }
+  }
 
   const handleExportPDF = async () => {
     if (rankings.length === 0) return
@@ -379,6 +425,9 @@ export default function RankingPage() {
                     <th className="text-center p-3 font-semibold">総合評価</th>
                     <th className="text-center p-3 font-semibold">最終決定</th>
                     <th className="text-left p-3 font-semibold">総評</th>
+                    {user?.role === 'admin' && (
+                      <th className="text-left p-3 font-semibold min-w-[240px]">メモ</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -443,6 +492,32 @@ export default function RankingPage() {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
+                      {user?.role === 'admin' && (
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1">
+                            <Textarea
+                              value={memos[entry.evaluatee_id] || ''}
+                              onChange={(e) => setMemos(prev => ({ ...prev, [entry.evaluatee_id]: e.target.value }))}
+                              placeholder="一言メモ..."
+                              className="text-sm min-h-[60px] resize-y"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => saveMemo(entry.evaluatee_id)}
+                              disabled={memoSaving[entry.evaluatee_id]}
+                              className="self-end"
+                            >
+                              {memoSaving[entry.evaluatee_id] ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              保存
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
