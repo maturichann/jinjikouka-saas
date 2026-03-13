@@ -457,6 +457,32 @@ export default function ResultsPage() {
     }
   }
 
+  const handleRevertConfirmation = async (evaluationId: string, evaluateeName: string) => {
+    if (!confirm(`${evaluateeName}の最終評価の確定を取り消しますか？\n本人からの閲覧ができなくなります。`)) {
+      return
+    }
+
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    try {
+      const { error } = await supabase
+        .from('evaluations')
+        .update({ status: 'submitted' })
+        .eq('id', evaluationId)
+
+      if (error) throw error
+
+      setEvaluations(prev =>
+        prev.map(e => e.id === evaluationId ? { ...e, status: 'submitted' as const } : e)
+      )
+      alert(`${evaluateeName}の確定を取り消しました。`)
+    } catch (error: any) {
+      console.error('差し戻しエラー:', error)
+      alert('差し戻しに失敗しました: ' + (error?.message || ''))
+    }
+  }
+
   const [selectedForConfirm, setSelectedForConfirm] = useState<Set<string>>(new Set())
 
   const confirmableEvaluations = useMemo(() =>
@@ -873,6 +899,16 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                               onClick={() => handleConfirmEvaluation(evaluation.id, evaluation.evaluatee)}
                             >
                               確定
+                            </Button>
+                          )}
+                          {user?.role === 'admin' && evaluation.stage === 'final' && evaluation.status === 'confirmed' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                              onClick={() => handleRevertConfirmation(evaluation.id, evaluation.evaluatee)}
+                            >
+                              差し戻し
                             </Button>
                           )}
                         </div>
