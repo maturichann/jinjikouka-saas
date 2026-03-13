@@ -138,7 +138,7 @@ export default function RankingPage() {
           .select('*')
           .eq('period_id', selectedPeriod)
           .eq('stage', 'final')
-          .eq('status', 'submitted')
+          .in('status', ['submitted', 'confirmed'])
 
         if (managedUserIds) {
           evaluationsQuery = evaluationsQuery.in('evaluatee_id', managedUserIds)
