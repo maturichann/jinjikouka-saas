@@ -267,8 +267,8 @@ export default function ResultsPage() {
         })
       )
 
-      // スタッフが確定済み最終評価を見る場合、総評とコメントを除外
-      const processedEvaluations = user.role === 'staff'
+      // スタッフ・店長が確定済み最終評価を見る場合、総評とコメントを除外
+      const processedEvaluations = user.role === 'staff' || user.role === 'manager'
         ? evaluationsWithScores.map(e => {
             if (e.stage === 'final' && e.status === 'confirmed') {
               return {

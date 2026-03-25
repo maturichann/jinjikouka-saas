@@ -236,12 +236,19 @@ export default function RankingPage() {
 
         setRankings(sorted)
 
-        // 管理者の場合、メモを取得
-        if (user?.role === 'admin') {
+        // 管理者の場合、メモを取得（同じ日付範囲の期間で共有）
+        if (user?.role === 'admin' && currentPeriod) {
+          // 同じ開始日・終了日の期間を「同じ期」として扱う
+          const sameDatePeriods = periods.filter(
+            (p: any) => p.start_date === currentPeriod.start_date && p.end_date === currentPeriod.end_date
+          )
+          const sameDatePeriodIds = sameDatePeriods.map((p: any) => p.id)
+
           const { data: memoData } = await client
             .from('ranking_memos')
-            .select('memo')
-            .eq('period_id', selectedPeriod)
+            .select('memo, period_id')
+            .in('period_id', sameDatePeriodIds)
+            .limit(1)
             .maybeSingle()
 
           if (isActive) {
@@ -265,18 +272,37 @@ export default function RankingPage() {
     }
   }, [selectedPeriod, user])
 
-  // メモ保存
+  // メモ保存（同じ日付範囲の期間で共有）
   const saveMemo = async () => {
     if (!user || user.role !== 'admin' || !selectedPeriod) return
     const supabase = supabaseRef.current
     if (!supabase) return
+
+    const currentPeriod = periods.find((p: any) => p.id === selectedPeriod)
+    if (!currentPeriod) return
+
+    // 同じ開始日・終了日の期間グループから代表のperiod_idを決める
+    const sameDatePeriods = periods.filter(
+      (p: any) => p.start_date === currentPeriod.start_date && p.end_date === currentPeriod.end_date
+    )
+    const sameDatePeriodIds = sameDatePeriods.map((p: any) => p.id)
+
+    // 既存のメモがあるperiod_idを探す（なければ最初の期間IDを使う）
+    const { data: existingMemo } = await supabase
+      .from('ranking_memos')
+      .select('period_id')
+      .in('period_id', sameDatePeriodIds)
+      .limit(1)
+      .maybeSingle()
+
+    const canonicalPeriodId = existingMemo?.period_id || sameDatePeriodIds[0]
 
     setMemoSaving(true)
     try {
       const { error } = await supabase
         .from('ranking_memos')
         .upsert({
-          period_id: selectedPeriod,
+          period_id: canonicalPeriodId,
           memo,
           created_by: user.id,
           updated_at: new Date().toISOString()
@@ -384,6 +410,39 @@ export default function RankingPage() {
         </CardContent>
       </Card>
 
+      {/* 管理者専用メモ（ランキングの上に表示） */}
+      {!isLoading && selectedPeriod && rankings.length > 0 && user?.role === 'admin' && (
+        <Card className="border-2 border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-amber-900">管理者メモ</CardTitle>
+            <CardDescription>管理者のみが閲覧・編集できます</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <Textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="この評価期間に関するメモを記入..."
+                className="min-h-[100px] resize-y"
+              />
+              <div className="flex justify-end">
+                <Button
+                  onClick={saveMemo}
+                  disabled={memoSaving}
+                >
+                  {memoSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  保存
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <Card>
           <CardContent className="p-8">
@@ -488,39 +547,6 @@ export default function RankingPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 管理者専用メモ */}
-      {!isLoading && selectedPeriod && rankings.length > 0 && user?.role === 'admin' && (
-        <Card className="border-2 border-amber-200 bg-amber-50">
-          <CardHeader>
-            <CardTitle className="text-amber-900">管理者メモ</CardTitle>
-            <CardDescription>管理者のみが閲覧・編集できます</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Textarea
-                value={memo}
-                onChange={(e) => setMemo(e.target.value)}
-                placeholder="この評価期間に関するメモを記入..."
-                className="min-h-[100px] resize-y"
-              />
-              <div className="flex justify-end">
-                <Button
-                  onClick={saveMemo}
-                  disabled={memoSaving}
-                >
-                  {memoSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  保存
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>
