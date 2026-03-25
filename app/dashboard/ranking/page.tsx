@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -420,10 +420,21 @@ export default function RankingPage() {
           <CardContent>
             <div className="space-y-3">
               <Textarea
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto'
+                    el.style.height = el.scrollHeight + 'px'
+                  }
+                }}
                 value={memo}
-                onChange={(e) => setMemo(e.target.value)}
+                onChange={(e) => {
+                  setMemo(e.target.value)
+                  const el = e.target
+                  el.style.height = 'auto'
+                  el.style.height = el.scrollHeight + 'px'
+                }}
                 placeholder="この評価期間に関するメモを記入..."
-                className="min-h-[100px] resize-y"
+                className="min-h-[100px] resize-none overflow-hidden"
               />
               <div className="flex justify-end">
                 <Button
