@@ -83,31 +83,19 @@ export default function TemplatesPage() {
     if (!supabase) return
 
     try {
-      // テンプレート取得
+      // テンプレート取得（項目もJOINで一括取得）
       const { data: templatesData, error: templatesError } = await supabase
         .from('evaluation_templates')
-        .select('*')
+        .select('*, evaluation_items(*)')
         .order('created_at', { ascending: false })
 
       if (templatesError) throw templatesError
 
-      // 各テンプレートの項目を取得
-      const templatesWithItems = await Promise.all(
-        (templatesData || []).map(async (template) => {
-          const { data: itemsData, error: itemsError } = await supabase
-            .from('evaluation_items')
-            .select('*')
-            .eq('template_id', template.id)
-            .order('order_index', { ascending: true })
-
-          if (itemsError) throw itemsError
-
-          return {
-            ...template,
-            items: itemsData || []
-          }
-        })
-      )
+      const templatesWithItems = (templatesData || []).map((template: any) => ({
+        ...template,
+        items: ((template.evaluation_items as any[]) || [])
+          .sort((a: any, b: any) => (a.order_index ?? 999) - (b.order_index ?? 999))
+      }))
 
       setTemplates(templatesWithItems)
     } catch (error) {

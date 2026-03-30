@@ -237,9 +237,8 @@ export default function EvaluationsPage() {
 
       setAvailableEvaluations(evaluationsWithItems)
 
-      // editIdがある場合は自動ロードしない（editIdのロードを優先）
-      if (evaluationsWithItems.length > 0 && !currentEvaluation && !editId) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+      // editIdがある場合や編集中の場合は自動ロードしない
+      if (evaluationsWithItems.length > 0 && !currentEvaluationRef.current && !editId) {
         loadEvaluation(evaluationsWithItems[0].id)
       }
     } catch (error: any) {
@@ -315,6 +314,14 @@ export default function EvaluationsPage() {
   const loadEvaluation = useCallback(async (evaluationId: string, forEdit: boolean = false) => {
     const supabase = supabaseRef.current
     if (!supabase) return
+
+    // 評価切替前に全デバウンスタイマーをクリア（別評価へのコメント混線を防止）
+    Object.values(commentTimerRef.current).forEach(timer => clearTimeout(timer))
+    commentTimerRef.current = {}
+    if (overallCommentTimerRef.current) {
+      clearTimeout(overallCommentTimerRef.current)
+      overallCommentTimerRef.current = null
+    }
 
     try {
       setIsLoading(true)
@@ -429,16 +436,25 @@ export default function EvaluationsPage() {
           self: '本人評価', manager: '店長評価', mg: 'MG評価', final: '最終評価'
         }
 
+        const prevEvalIds = (prevEvals || []).map((e: any) => e.id)
+        const { data: allPrevScores } = prevEvalIds.length > 0
+          ? await supabase.from('evaluation_scores').select('*').in('evaluation_id', prevEvalIds)
+          : { data: [] }
+
+        const prevScoresMap = new Map<string, any[]>()
+        for (const s of (allPrevScores || [])) {
+          const arr = prevScoresMap.get(s.evaluation_id) || []
+          arr.push(s)
+          prevScoresMap.set(s.evaluation_id, arr)
+        }
+
         const refs: ReferenceEvaluation[] = []
         for (const prevEval of (prevEvals || [])) {
-          const { data: prevScores } = await supabase
-            .from('evaluation_scores')
-            .select('*')
-            .eq('evaluation_id', prevEval.id)
+          const prevScores = prevScoresMap.get(prevEval.id) || []
 
           const itemsMap: Record<string, ReferenceScore> = {}
           let totalScore = 0
-          for (const s of (prevScores || [])) {
+          for (const s of prevScores) {
             itemsMap[s.item_id] = {
               grade: s.grade || '',
               score: s.score || 0,
@@ -665,9 +681,22 @@ export default function EvaluationsPage() {
     }
   }, [user, fetchAvailableEvaluations, fetchSubmittedEvaluations])
 
+  // タブがアクティブに戻ったときにデータを再取得（他ユーザーの変更を反映）
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        fetchAvailableEvaluations()
+        fetchSubmittedEvaluations()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user, fetchAvailableEvaluations, fetchSubmittedEvaluations])
+
   // URLパラメータから編集対象の評価を読み込む
   useEffect(() => {
     if (editId && !editIdProcessed && !isLoading) {
+      setEditIdProcessed(true)
       setActiveTab('submitted')
       // 期間ステータスを確認して編集可否を決定
       const checkAndLoad = async () => {
@@ -694,7 +723,6 @@ export default function EvaluationsPage() {
         loadEvaluation(editId, forEdit)
       }
       checkAndLoad()
-      setEditIdProcessed(true)
     }
   }, [editId, editIdProcessed, isLoading, loadEvaluation])
 
@@ -721,8 +749,12 @@ export default function EvaluationsPage() {
       const supabase = supabaseRef.current
       const evalRef = currentEvaluationRef.current
       if (supabase && evalRef) {
-        await supabase.from('evaluation_scores').delete()
+        const { error } = await supabase.from('evaluation_scores').delete()
           .eq('evaluation_id', evalRef.id).eq('item_id', itemId)
+        if (error) {
+          console.error('保留解除の削除エラー:', error)
+          alert('保留解除に失敗しました。ページを再読み込みしてください。')
+        }
       }
     } else {
       // 保留設定: grade='HOLD', score=0
@@ -793,13 +825,14 @@ export default function EvaluationsPage() {
       }
     })
 
-    // デバウンス保存（タイマー発火時にrefから最新のグレード/スコアを読む）
+    // デバウンス保存（評価IDを閉じ込めて、切替後の混線を防止）
     if (commentTimerRef.current[itemId]) {
       clearTimeout(commentTimerRef.current[itemId])
     }
+    const capturedEvalId = currentEvaluationRef.current?.id
     commentTimerRef.current[itemId] = setTimeout(async () => {
       const latest = currentEvaluationRef.current
-      if (!latest) return
+      if (!latest || latest.id !== capturedEvalId) return
       const latestItem = latest.items.find(i => i.id === itemId)
       const latestGrade = latestItem?.grade || ''
       const latestScore = latestItem?.score || 0
@@ -818,11 +851,13 @@ export default function EvaluationsPage() {
       return { ...prev, overall_comment: comment }
     })
 
-    // デバウンス保存
+    // デバウンス保存（評価IDを閉じ込めて、切替後の混線を防止）
     if (overallCommentTimerRef.current) {
       clearTimeout(overallCommentTimerRef.current)
     }
+    const capturedEvalId = currentEvaluationRef.current?.id
     overallCommentTimerRef.current = setTimeout(async () => {
+      if (currentEvaluationRef.current?.id !== capturedEvalId) return
       await saveOverallComment(comment)
     }, 500)
   }
@@ -867,25 +902,31 @@ export default function EvaluationsPage() {
           onConflict: 'evaluation_id,item_id'
         })
 
-      // upsertエラーの場合はDELETE→INSERTにフォールバック
+      // upsertエラーの場合はINSERT試行（既存レコードを消さずに試みる）
       if (scoreError) {
         console.error('upsertエラー、フォールバック実行:', scoreError)
-        await supabase.from('evaluation_scores').delete()
-          .eq('evaluation_id', evalRef.id).eq('item_id', itemId)
+        // まずINSERTを試す（重複なら失敗するが既存データは残る）
         const { error: insertError } = await supabase.from('evaluation_scores').insert({
           evaluation_id: evalRef.id, item_id: itemId, score, comment, grade
         })
-        if (insertError) throw insertError
+        if (insertError) {
+          // 重複エラーの場合はUPDATEで上書き
+          const { error: updateError } = await supabase.from('evaluation_scores')
+            .update({ score, comment, grade })
+            .eq('evaluation_id', evalRef.id).eq('item_id', itemId)
+          if (updateError) throw updateError
+        }
       }
 
       setSaveError(null)
 
-      // ステータスを in_progress に更新（まだ pending の場合）
+      // ステータスを in_progress に更新（まだ pending の場合のみ。submitted/confirmed は巻き戻さない）
       if (evalRef.status === 'pending') {
         await supabase
           .from('evaluations')
           .update({ status: 'in_progress' })
           .eq('id', evalRef.id)
+          .eq('status', 'pending')
       }
     } catch (error: any) {
       console.error('スコア保存エラー:', error)
@@ -980,20 +1021,23 @@ export default function EvaluationsPage() {
           })
       )
 
-      // upsertエラーの場合はDELETE→INSERTにフォールバック
+      // upsertエラーの場合はINSERT→UPDATEにフォールバック（既存データを消さない）
       const failedSaves = saveResults.filter(r => r.error)
       if (failedSaves.length > 0) {
         console.error('スコア保存エラー（フォールバック実行）:', failedSaves)
         for (const failed of failedSaves) {
           const item = evalToSave.items.find(i => i.id === failed.itemId)
           if (!item) continue
-          await supabase.from('evaluation_scores').delete()
-            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
           const { error: insertError } = await supabase.from('evaluation_scores').insert({
             evaluation_id: evalToSave.id, item_id: item.id,
             score: item.score, comment: item.comment, grade: item.grade || ''
           })
-          if (insertError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
+          if (insertError) {
+            const { error: updateError } = await supabase.from('evaluation_scores')
+              .update({ score: item.score, comment: item.comment, grade: item.grade || '' })
+              .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+            if (updateError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${updateError.message}`)
+          }
         }
       }
 
@@ -1055,8 +1099,8 @@ export default function EvaluationsPage() {
         overallCommentTimerRef.current = null
       }
 
-      // グレードが選択されている全項目を一括保存
-      const itemsToSave = evalToSave.items.filter(item => item.grade && item.grade !== '')
+      // グレードまたはコメントがある全項目を一括保存
+      const itemsToSave = evalToSave.items.filter(item => (item.grade && item.grade !== '') || (item.comment && item.comment !== ''))
       let savedCount = 0
       let failedItems: string[] = []
 
@@ -1074,16 +1118,19 @@ export default function EvaluationsPage() {
           })
 
         if (scoreError) {
-          // フォールバック: DELETE→INSERT
-          await supabase.from('evaluation_scores').delete()
-            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+          // フォールバック: INSERT→UPDATE（既存データを消さない）
           const { error: insertError } = await supabase.from('evaluation_scores').insert({
             evaluation_id: evalToSave.id, item_id: item.id,
             score: item.score, comment: item.comment, grade: item.grade
           })
           if (insertError) {
-            failedItems.push(item.name)
-            continue
+            const { error: updateError } = await supabase.from('evaluation_scores')
+              .update({ score: item.score, comment: item.comment, grade: item.grade })
+              .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+            if (updateError) {
+              failedItems.push(item.name)
+              continue
+            }
           }
         }
         savedCount++
@@ -1107,12 +1154,13 @@ export default function EvaluationsPage() {
           .eq('id', evalToSave.id)
       }
 
-      // ステータスを in_progress に更新
+      // ステータスを in_progress に更新（DB側もpendingの場合のみ。submitted/confirmedは巻き戻さない）
       if (evalToSave.status === 'pending') {
         await supabase
           .from('evaluations')
           .update({ status: 'in_progress' })
           .eq('id', evalToSave.id)
+          .eq('status', 'pending')
       }
 
       if (failedItems.length > 0) {
@@ -1120,7 +1168,7 @@ export default function EvaluationsPage() {
         alert(`下書き保存: ${savedCount}件保存、${failedItems.length}件失敗\n\n失敗: ${failedItems.join('、')}`)
       } else {
         setSaveError(null)
-        alert(`下書き保存完了（${savedCount}/${evalToSave.items.length}項目を保存しました）`)
+        alert(`下書き保存完了（${savedCount}/${itemsToSave.length}項目を保存しました）`)
       }
     } catch (error: any) {
       console.error('下書き保存エラー:', error)
@@ -1194,29 +1242,33 @@ export default function EvaluationsPage() {
               }, {
                 onConflict: 'evaluation_id,item_id'
               })
-            return { itemName: item.name, error }
+            return { itemName: item.name, itemId: item.id, error }
           })
       )
 
-      // upsertエラーを確認
+      // upsertエラーの場合はINSERT→UPDATEにフォールバック（既存データを消さない）
       const failedSaves = saveResults.filter(r => r.error)
       if (failedSaves.length > 0) {
         console.error('スコア保存エラー:', failedSaves)
         for (const failed of failedSaves) {
-          const item = evalToSave.items.find(i => i.name === failed.itemName)
+          const item = evalToSave.items.find(i => i.id === failed.itemId)
           if (!item) continue
-          await supabase.from('evaluation_scores').delete()
-            .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
           const { error: insertError } = await supabase.from('evaluation_scores').insert({
             evaluation_id: evalToSave.id, item_id: item.id,
             score: item.score, comment: item.comment, grade: item.grade || ''
           })
-          if (insertError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${insertError.message}`)
+          if (insertError) {
+            const { error: updateError } = await supabase.from('evaluation_scores')
+              .update({ score: item.score, comment: item.comment, grade: item.grade || '' })
+              .eq('evaluation_id', evalToSave.id).eq('item_id', item.id)
+            if (updateError) throw new Error(`スコア保存失敗 (${failed.itemName}): ${updateError.message}`)
+          }
         }
       }
 
       // 総評コメント・総合評価・最終決定も保存
       const evalUpdate: Record<string, any> = {
+        status: 'submitted',
         submitted_at: new Date().toISOString(),
         evaluator_id: user!.id
       }
