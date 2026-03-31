@@ -174,76 +174,57 @@ export default function RankingPage() {
 
         if (!isActive) return
 
-        // 全評価IDでスコアを一括取得（results/page.tsxと同じ単純合計方式）
-        const allEvaluationIds = (evaluations || []).map((e: any) => e.id)
-        const { data: allScores } = allEvaluationIds.length > 0
-          ? await client.from('evaluation_scores').select('evaluation_id, score').in('evaluation_id', allEvaluationIds).limit(10000)
-          : { data: [] }
-
-        // evaluation_idごとにグルーピング
-        const scoresMap = new Map<string, number[]>()
-        for (const s of (allScores || [])) {
-          const arr = scoresMap.get(s.evaluation_id) || []
-          arr.push(s.score || 0)
-          scoresMap.set(s.evaluation_id, arr)
-        }
-
-        // 前期の評価を一括取得
-        let previousScoresMap = new Map<string, number>()
-        if (previousPeriodId) {
-          const evaluateeIds = (evaluations || []).map((e: any) => e.evaluatee_id)
-          const { data: previousEvals } = await client
-            .from('evaluations')
-            .select('id, evaluatee_id')
-            .eq('period_id', previousPeriodId)
-            .eq('stage', 'final')
-            .in('status', ['submitted', 'confirmed'])
-            .in('evaluatee_id', evaluateeIds)
-
-          if (previousEvals && previousEvals.length > 0) {
-            const prevEvalIds = previousEvals.map(e => e.id)
-            const { data: prevScores } = await client
+        // スコアで計算してランキング作成
+        const rankingData: RankingEntry[] = await Promise.all(
+          (evaluations || []).map(async (evaluation: any) => {
+            // 評価項目のスコアを取得
+            const { data: scores } = await client
               .from('evaluation_scores')
-              .select('evaluation_id, score')
-              .in('evaluation_id', prevEvalIds)
+              .select('score')
+              .eq('evaluation_id', evaluation.id)
 
-            // evaluatee_idごとの前期スコアマップ
-            const prevEvalMap = new Map(previousEvals.map(e => [e.id, e.evaluatee_id]))
-            const prevTotals = new Map<string, number>()
-            for (const s of (prevScores || [])) {
-              const evaluateeId = prevEvalMap.get(s.evaluation_id)
-              if (evaluateeId) {
-                prevTotals.set(evaluateeId, (prevTotals.get(evaluateeId) || 0) + (s.score || 0))
+            const totalScore = Math.round((scores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0) * 10) / 10
+
+            // 前年度のスコアを取得
+            let previousScore: number | undefined
+            let scoreChange: number | undefined
+
+            if (previousPeriodId) {
+              const { data: previousEval } = await client
+                .from('evaluations')
+                .select('id')
+                .eq('period_id', previousPeriodId)
+                .eq('evaluatee_id', evaluation.evaluatee_id)
+                .eq('stage', 'final')
+                .in('status', ['submitted', 'confirmed'])
+                .maybeSingle()
+
+              if (previousEval) {
+                const { data: previousScores } = await client
+                  .from('evaluation_scores')
+                  .select('score')
+                  .eq('evaluation_id', previousEval.id)
+
+                previousScore = Math.round((previousScores?.reduce((sum, s) => sum + (s.score || 0), 0) || 0) * 10) / 10
+                scoreChange = Math.round((totalScore - previousScore) * 10) / 10
               }
             }
-            previousScoresMap = new Map([...prevTotals].map(([k, v]) => [k, Math.round(v * 10) / 10]))
-          }
-        }
 
-        // ランキングデータ構築（ループ内でクエリなし）
-        const rankingData: RankingEntry[] = (evaluations || []).map((evaluation: any) => {
-          const scores = scoresMap.get(evaluation.id) || []
-          const totalScore = Math.round(scores.reduce((sum, s) => sum + s, 0) * 10) / 10
-
-          const previousScore = previousScoresMap.get(evaluation.evaluatee_id)
-          const scoreChange = previousScore !== undefined
-            ? Math.round((totalScore - previousScore) * 10) / 10
-            : undefined
-
-          const evaluateeUser = usersMap.get(evaluation.evaluatee_id)
-          return {
-            evaluatee_id: evaluation.evaluatee_id,
-            evaluatee_name: evaluateeUser?.name || '不明',
-            department: evaluateeUser?.department || '不明',
-            totalScore,
-            rank: 0,
-            previousScore,
-            scoreChange,
-            overall_comment: evaluation.overall_comment || '',
-            overall_grade: evaluation.overall_grade || '',
-            final_decision: evaluation.final_decision || ''
-          }
-        })
+            const evaluateeUser = usersMap.get(evaluation.evaluatee_id)
+            return {
+              evaluatee_id: evaluation.evaluatee_id,
+              evaluatee_name: evaluateeUser?.name || '不明',
+              department: evaluateeUser?.department || '不明',
+              totalScore,
+              rank: 0,
+              previousScore,
+              scoreChange,
+              overall_comment: evaluation.overall_comment || '',
+              overall_grade: evaluation.overall_grade || '',
+              final_decision: evaluation.final_decision || ''
+            }
+          })
+        )
 
         if (!isActive) return
 

@@ -202,74 +202,65 @@ export default function ResultsPage() {
       // 削除されたユーザーの評価を除外
       const validEvaluations = evaluationsData.filter(e => usersMap.has(e.evaluatee_id))
 
-      // 全評価のスコアを一括取得
-      const allEvalIds = validEvaluations.map(e => e.id)
-      const { data: allScoresData } = allEvalIds.length > 0
-        ? await supabase.from('evaluation_scores').select('evaluation_id, score, comment, grade, item_id').in('evaluation_id', allEvalIds).limit(10000)
-        : { data: [] }
+      // 各評価のスコアを個別取得して総合点を計算
+      const evaluationsWithScores = await Promise.all(
+        validEvaluations.map(async (evaluation) => {
+          // テンプレートの全項目を取得
+          const periodInfo = periodsMap.get(evaluation.period_id) as any
+          const templateId = periodInfo?.template_id
+          const allTemplateItems = templateId ? (templateItemsMap.get(templateId) || []) : []
 
-      // evaluation_idごとにグルーピング
-      const allScoresMap = new Map<string, any[]>()
-      for (const s of (allScoresData || [])) {
-        const arr = allScoresMap.get(s.evaluation_id) || []
-        arr.push(s)
-        allScoresMap.set(s.evaluation_id, arr)
-      }
+          const { data: scoresData } = await supabase
+            .from('evaluation_scores')
+            .select('score, comment, grade, item_id')
+            .eq('evaluation_id', evaluation.id)
 
-      // 各評価のスコアを取得して総合点を計算
-      const evaluationsWithScores = validEvaluations.map((evaluation) => {
-        // テンプレートの全項目を取得
-        const periodInfo = periodsMap.get(evaluation.period_id) as any
-        const templateId = periodInfo?.template_id
-        const allTemplateItems = templateId ? (templateItemsMap.get(templateId) || []) : []
+          // スコアをitem_idでマップ化
+          const scoresMap = new Map<string, any>()
+          for (const s of (scoresData || [])) {
+            scoresMap.set(s.item_id, s)
+          }
 
-        const scoresData = allScoresMap.get(evaluation.id) || []
+          // テンプレートの全項目をベースに、スコアをマージ
+          const items = allTemplateItems.map((templateItem: any) => {
+            const score = scoresMap.get(templateItem.id)
+            return {
+              name: templateItem.name || '',
+              description: templateItem.description || '',
+              weight: templateItem.weight || 0,
+              score: score?.score || 0,
+              comment: score?.comment || '',
+              criteria: templateItem.criteria || '',
+              grade: score?.grade || '',
+              order_index: templateItem.order_index ?? 999
+            }
+          })
 
-        // スコアをitem_idでマップ化
-        const scoresMap = new Map<string, any>()
-        for (const s of scoresData) {
-          scoresMap.set(s.item_id, s)
-        }
+          // order_indexで並び替え
+          items.sort((a: any, b: any) => a.order_index - b.order_index)
 
-        // テンプレートの全項目をベースに、スコアをマージ
-        const items = allTemplateItems.map((templateItem: any) => {
-          const score = scoresMap.get(templateItem.id)
+          // 単純合計を計算（浮動小数点対策）
+          const totalScore = Math.round(items.reduce((sum: number, item: any) => sum + (item.score || 0), 0) * 10) / 10
+
           return {
-            name: templateItem.name || '',
-            description: templateItem.description || '',
-            weight: templateItem.weight || 0,
-            score: score?.score || 0,
-            comment: score?.comment || '',
-            criteria: templateItem.criteria || '',
-            grade: score?.grade || '',
-            order_index: templateItem.order_index ?? 999
+            id: evaluation.id,
+            evaluatee_id: evaluation.evaluatee_id,
+            evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
+            period: periodsMap.get(evaluation.period_id)?.name || '',
+            department: usersMap.get(evaluation.evaluatee_id)?.department || '',
+            stage: evaluation.stage,
+            status: evaluation.status,
+            totalScore,
+            submittedAt: evaluation.submitted_at ?
+              new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
+            overall_comment: evaluation.overall_comment || '',
+            overall_grade: evaluation.overall_grade || '',
+            final_decision: evaluation.final_decision || '',
+            items,
+            evaluator_id: evaluation.evaluator_id
           }
         })
-
-        // order_indexで並び替え
-        items.sort((a: any, b: any) => a.order_index - b.order_index)
-
-        // evaluation_scoresの全レコードで単純合計（ランキングと同じ方式）
-        const totalScore = Math.round(scoresData.reduce((sum: number, s: any) => sum + (s.score || 0), 0) * 10) / 10
-
-        return {
-          id: evaluation.id,
-          evaluatee_id: evaluation.evaluatee_id,
-          evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
-          period: periodsMap.get(evaluation.period_id)?.name || '',
-          department: usersMap.get(evaluation.evaluatee_id)?.department || '',
-          stage: evaluation.stage,
-          status: evaluation.status,
-          totalScore,
-          submittedAt: evaluation.submitted_at ?
-            new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
-          overall_comment: evaluation.overall_comment || '',
-          overall_grade: evaluation.overall_grade || '',
-          final_decision: evaluation.final_decision || '',
-          items,
-          evaluator_id: evaluation.evaluator_id
-        }
-      })
+      )
 
       // スタッフ・店長が確定済み最終評価を見る場合、総評とコメントを除外
       const processedEvaluations = user.role === 'staff' || user.role === 'manager'

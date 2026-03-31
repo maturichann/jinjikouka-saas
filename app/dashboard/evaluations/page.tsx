@@ -436,25 +436,16 @@ export default function EvaluationsPage() {
           self: '本人評価', manager: '店長評価', mg: 'MG評価', final: '最終評価'
         }
 
-        const prevEvalIds = (prevEvals || []).map((e: any) => e.id)
-        const { data: allPrevScores } = prevEvalIds.length > 0
-          ? await supabase.from('evaluation_scores').select('*').in('evaluation_id', prevEvalIds).limit(10000)
-          : { data: [] }
-
-        const prevScoresMap = new Map<string, any[]>()
-        for (const s of (allPrevScores || [])) {
-          const arr = prevScoresMap.get(s.evaluation_id) || []
-          arr.push(s)
-          prevScoresMap.set(s.evaluation_id, arr)
-        }
-
         const refs: ReferenceEvaluation[] = []
         for (const prevEval of (prevEvals || [])) {
-          const prevScores = prevScoresMap.get(prevEval.id) || []
+          const { data: prevScores } = await supabase
+            .from('evaluation_scores')
+            .select('*')
+            .eq('evaluation_id', prevEval.id)
 
           const itemsMap: Record<string, ReferenceScore> = {}
           let totalScore = 0
-          for (const s of prevScores) {
+          for (const s of (prevScores || [])) {
             itemsMap[s.item_id] = {
               grade: s.grade || '',
               score: s.score || 0,
