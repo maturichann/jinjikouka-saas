@@ -35,11 +35,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 type EvaluationResult = {
   id: string
+  evaluatee_id: string
   evaluatee: string
   period: string
   department: string
   stage: 'self' | 'manager' | 'mg' | 'final'
-  status: 'pending' | 'submitted' | 'confirmed'
+  status: 'pending' | 'in_progress' | 'submitted' | 'confirmed'
   totalScore: number
   submittedAt: string
   overall_comment?: string
@@ -172,15 +173,17 @@ export default function ResultsPage() {
       // テンプレートの全項目を取得
       const templateIds = [...new Set((periodsData || []).map(p => (p as any).template_id).filter(Boolean))]
       const templateItemsMap = new Map<string, any[]>()
-      for (const templateId of templateIds) {
-        const { data: templateData } = await supabase
+      if (templateIds.length > 0) {
+        const { data: templatesData } = await supabase
           .from('evaluation_templates')
           .select('id, evaluation_items(*)')
-          .eq('id', templateId)
-          .single()
-        if (templateData?.evaluation_items) {
-          const items = (templateData.evaluation_items as any[]).sort((a: any, b: any) => (a.order_index ?? 999) - (b.order_index ?? 999))
-          templateItemsMap.set(templateId, items)
+          .in('id', templateIds)
+
+        for (const templateData of (templatesData || [])) {
+          if (templateData.evaluation_items) {
+            const items = (templateData.evaluation_items as any[]).sort((a: any, b: any) => (a.order_index ?? 999) - (b.order_index ?? 999))
+            templateItemsMap.set(templateData.id, items)
+          }
         }
       }
 
@@ -199,73 +202,74 @@ export default function ResultsPage() {
       // 削除されたユーザーの評価を除外
       const validEvaluations = evaluationsData.filter(e => usersMap.has(e.evaluatee_id))
 
+      // 全評価のスコアを一括取得
+      const allEvalIds = validEvaluations.map(e => e.id)
+      const { data: allScoresData } = allEvalIds.length > 0
+        ? await supabase.from('evaluation_scores').select('evaluation_id, score, comment, grade, item_id').in('evaluation_id', allEvalIds).limit(10000)
+        : { data: [] }
+
+      // evaluation_idごとにグルーピング
+      const allScoresMap = new Map<string, any[]>()
+      for (const s of (allScoresData || [])) {
+        const arr = allScoresMap.get(s.evaluation_id) || []
+        arr.push(s)
+        allScoresMap.set(s.evaluation_id, arr)
+      }
+
       // 各評価のスコアを取得して総合点を計算
-      const evaluationsWithScores = await Promise.all(
-        validEvaluations.map(async (evaluation) => {
-          // テンプレートの全項目を取得
-          const periodInfo = periodsMap.get(evaluation.period_id) as any
-          const templateId = periodInfo?.template_id
-          const allTemplateItems = templateId ? (templateItemsMap.get(templateId) || []) : []
+      const evaluationsWithScores = validEvaluations.map((evaluation) => {
+        // テンプレートの全項目を取得
+        const periodInfo = periodsMap.get(evaluation.period_id) as any
+        const templateId = periodInfo?.template_id
+        const allTemplateItems = templateId ? (templateItemsMap.get(templateId) || []) : []
 
-          const { data: scoresData, error: scoresError } = await supabase
-            .from('evaluation_scores')
-            .select(`
-              score,
-              comment,
-              grade,
-              item_id
-            `)
-            .eq('evaluation_id', evaluation.id)
+        const scoresData = allScoresMap.get(evaluation.id) || []
 
-          if (scoresError) {
-            console.error('スコアデータ取得エラー:', scoresError)
-          }
+        // スコアをitem_idでマップ化
+        const scoresMap = new Map<string, any>()
+        for (const s of scoresData) {
+          scoresMap.set(s.item_id, s)
+        }
 
-          // スコアをitem_idでマップ化
-          const scoresMap = new Map<string, any>()
-          for (const s of (scoresData || [])) {
-            scoresMap.set(s.item_id, s)
-          }
-
-          // テンプレートの全項目をベースに、スコアをマージ
-          const items = allTemplateItems.map((templateItem: any) => {
-            const score = scoresMap.get(templateItem.id)
-            return {
-              name: templateItem.name || '',
-              description: templateItem.description || '',
-              weight: templateItem.weight || 0,
-              score: score?.score || 0,
-              comment: score?.comment || '',
-              criteria: templateItem.criteria || '',
-              grade: score?.grade || '',
-              order_index: templateItem.order_index ?? 999
-            }
-          })
-
-          // order_indexで並び替え
-          items.sort((a: any, b: any) => a.order_index - b.order_index)
-
-          // 単純合計を計算（浮動小数点対策）
-          const totalScore = Math.round(items.reduce((sum: number, item: any) => sum + (item.score || 0), 0) * 10) / 10
-
+        // テンプレートの全項目をベースに、スコアをマージ
+        const items = allTemplateItems.map((templateItem: any) => {
+          const score = scoresMap.get(templateItem.id)
           return {
-            id: evaluation.id,
-            evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
-            period: periodsMap.get(evaluation.period_id)?.name || '',
-            department: usersMap.get(evaluation.evaluatee_id)?.department || '',
-            stage: evaluation.stage,
-            status: evaluation.status,
-            totalScore,
-            submittedAt: evaluation.submitted_at ?
-              new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
-            overall_comment: evaluation.overall_comment || '',
-            overall_grade: evaluation.overall_grade || '',
-            final_decision: evaluation.final_decision || '',
-            items,
-            evaluator_id: evaluation.evaluator_id
+            name: templateItem.name || '',
+            description: templateItem.description || '',
+            weight: templateItem.weight || 0,
+            score: score?.score || 0,
+            comment: score?.comment || '',
+            criteria: templateItem.criteria || '',
+            grade: score?.grade || '',
+            order_index: templateItem.order_index ?? 999
           }
         })
-      )
+
+        // order_indexで並び替え
+        items.sort((a: any, b: any) => a.order_index - b.order_index)
+
+        // evaluation_scoresの全レコードで単純合計（ランキングと同じ方式）
+        const totalScore = Math.round(scoresData.reduce((sum: number, s: any) => sum + (s.score || 0), 0) * 10) / 10
+
+        return {
+          id: evaluation.id,
+          evaluatee_id: evaluation.evaluatee_id,
+          evaluatee: usersMap.get(evaluation.evaluatee_id)?.name || '',
+          period: periodsMap.get(evaluation.period_id)?.name || '',
+          department: usersMap.get(evaluation.evaluatee_id)?.department || '',
+          stage: evaluation.stage,
+          status: evaluation.status,
+          totalScore,
+          submittedAt: evaluation.submitted_at ?
+            new Date(evaluation.submitted_at).toLocaleDateString('ja-JP') : '-',
+          overall_comment: evaluation.overall_comment || '',
+          overall_grade: evaluation.overall_grade || '',
+          final_decision: evaluation.final_decision || '',
+          items,
+          evaluator_id: evaluation.evaluator_id
+        }
+      })
 
       // スタッフ・店長が確定済み最終評価を見る場合、総評とコメントを除外
       const processedEvaluations = user.role === 'staff' || user.role === 'manager'
@@ -324,6 +328,7 @@ export default function ResultsPage() {
     }
     const variants: Record<string, { variant: "default" | "secondary" | "outline", label: string }> = {
       pending: { variant: "outline", label: "未提出" },
+      in_progress: { variant: "secondary", label: "作成中" },
       submitted: { variant: "default", label: "提出済み" }
     }
     const config = variants[status] || variants.pending
@@ -347,17 +352,17 @@ export default function ResultsPage() {
 
     // スタッフは自分の評価のみ
     if (user.role === 'staff') {
-      filtered = evaluations.filter(e => e.evaluatee === user.name)
+      filtered = evaluations.filter(e => e.evaluatee_id === user.id)
     }
-    // 店長は自部署の評価のみ（filterが"all"でない限り）
-    else if (user.role === 'manager' && filter !== "all") {
+    // 店長は自部署の評価のみ
+    else if (user.role === 'manager') {
       filtered = evaluations.filter(e => e.department === user.department)
     }
     // MG・管理者は全て見れる
 
     // さらにユーザーが選択したフィルターを適用
     if (filter === "my-evaluations") {
-      filtered = filtered.filter(e => e.evaluatee === user.name)
+      filtered = filtered.filter(e => e.evaluatee_id === user.id)
     } else if (filter === "my-department") {
       if (user.role === 'mg' && user.managed_departments?.length > 0) {
         filtered = filtered.filter(e => user.managed_departments.includes(e.department))
@@ -407,13 +412,13 @@ export default function ResultsPage() {
 
   const getPersonEvaluations = (name: string) => {
     const stageOrder = { 'self': 1, 'manager': 2, 'mg': 3, 'final': 4 }
-    return evaluations
+    return filteredEvaluations
       .filter(e => e.evaluatee === name)
       .sort((a, b) => stageOrder[a.stage] - stageOrder[b.stage])
   }
 
-  // 総評閲覧権限: 管理者・MGのみ
-  const canViewOverallComment = user?.role === 'admin' || user?.role === 'mg'
+  // コメント閲覧権限: 管理者・MGのみ（店長・スタッフは総評も各項目コメントも非表示）
+  const canViewComment = user?.role === 'admin' || user?.role === 'mg'
 
   // 提出済み or 確定済みを「完了」として扱う
   const isCompleted = (status: string) => status === 'submitted' || status === 'confirmed'
@@ -484,6 +489,11 @@ export default function ResultsPage() {
   }
 
   const [selectedForConfirm, setSelectedForConfirm] = useState<Set<string>>(new Set())
+
+  // フィルタ変更時に選択をリセット
+  useEffect(() => {
+    setSelectedForConfirm(new Set())
+  }, [filteredEvaluations])
 
   const confirmableEvaluations = useMemo(() =>
     filteredEvaluations.filter(e => e.stage === 'final' && e.status === 'submitted'),
@@ -628,6 +638,8 @@ export default function ResultsPage() {
   // 編集可能かどうかの判定
   const canEdit = (evaluation: EvaluationResult) => {
     if (evaluation.status !== 'submitted') return false
+    // 最終評価の編集は管理者のみ
+    if (evaluation.stage === 'final') return user.role === 'admin'
     // 自分が提出した評価は編集可能
     if (evaluation.evaluator_id === user.id) return true
     // 管理者は全て編集可能
@@ -1181,7 +1193,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                   <p className="text-sm text-gray-600">提出日</p>
                   <p className="font-semibold">{selectedEvaluation.submittedAt}</p>
                 </div>
-                {canViewOverallComment && selectedEvaluation.stage === 'final' && isCompleted(selectedEvaluation.status) && selectedEvaluation.overall_comment && (
+                {canViewComment && selectedEvaluation.stage === 'final' && isCompleted(selectedEvaluation.status) && selectedEvaluation.overall_comment && (
                   <div className="col-span-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm font-semibold text-red-900 mb-1">総評</p>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedEvaluation.overall_comment}</p>
@@ -1218,7 +1230,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                           <p className="text-gray-700"><strong>評価基準:</strong> {item.criteria}</p>
                         </div>
                       )}
-                      {item.comment && (
+                      {canViewComment && item.comment && (
                         <div className="mt-2 p-3 bg-white rounded border border-gray-200">
                           <p className="text-sm text-gray-600 font-semibold mb-1">コメント:</p>
                           <p className="text-sm text-gray-800">{item.comment}</p>
@@ -1271,21 +1283,21 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                       <thead>
                         <tr className="bg-gray-100">
                           <th className="border p-1 text-left sticky left-0 bg-gray-100 z-10 text-xs">項目</th>
-                          <th className="border p-1 text-center bg-blue-50 text-xs" colSpan={2}>本人評価</th>
-                          <th className="border p-1 text-center bg-green-50 text-xs" colSpan={2}>店長評価</th>
-                          <th className="border p-1 text-center bg-purple-50 text-xs" colSpan={2}>MG評価</th>
-                          <th className="border p-1 text-center bg-red-50 text-xs" colSpan={2}>最終評価</th>
+                          <th className="border p-1 text-center bg-blue-50 text-xs" colSpan={canViewComment ? 2 : 1}>本人評価</th>
+                          <th className="border p-1 text-center bg-green-50 text-xs" colSpan={canViewComment ? 2 : 1}>店長評価</th>
+                          <th className="border p-1 text-center bg-purple-50 text-xs" colSpan={canViewComment ? 2 : 1}>MG評価</th>
+                          <th className="border p-1 text-center bg-red-50 text-xs" colSpan={canViewComment ? 2 : 1}>最終評価</th>
                         </tr>
                         <tr className="bg-gray-50 text-[10px]">
                           <th className="border px-1 py-0.5 text-left sticky left-0 bg-gray-50 z-10">説明</th>
                           <th className="border px-1 py-0.5 text-center bg-blue-50 w-12">スコア</th>
-                          <th className="border px-1 py-0.5 text-center bg-blue-50">コメント</th>
+                          {canViewComment && <th className="border px-1 py-0.5 text-center bg-blue-50">コメント</th>}
                           <th className="border px-1 py-0.5 text-center bg-green-50 w-12">スコア</th>
-                          <th className="border px-1 py-0.5 text-center bg-green-50">コメント</th>
+                          {canViewComment && <th className="border px-1 py-0.5 text-center bg-green-50">コメント</th>}
                           <th className="border px-1 py-0.5 text-center bg-purple-50 w-12">スコア</th>
-                          <th className="border px-1 py-0.5 text-center bg-purple-50">コメント</th>
+                          {canViewComment && <th className="border px-1 py-0.5 text-center bg-purple-50">コメント</th>}
                           <th className="border px-1 py-0.5 text-center bg-red-50 w-12">スコア</th>
-                          <th className="border px-1 py-0.5 text-center bg-red-50">コメント</th>
+                          {canViewComment && <th className="border px-1 py-0.5 text-center bg-red-50">コメント</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1319,13 +1331,15 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border px-1 py-0.5 text-[10px] bg-blue-50">
-                                {selfEval && isCompleted(selfEval.status) && selfItem?.comment ? (
-                                  selfItem.comment
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </td>
+                              {canViewComment && (
+                                <td className="border px-1 py-0.5 text-[10px] bg-blue-50">
+                                  {selfEval && isCompleted(selfEval.status) && selfItem?.comment ? (
+                                    selfItem.comment
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              )}
                               {/* 店長評価 */}
                               <td className="border px-1 py-0.5 text-center bg-green-50">
                                 {managerEval && isCompleted(managerEval.status) && managerItem ? (
@@ -1343,13 +1357,15 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border px-1 py-0.5 text-[10px] bg-green-50">
-                                {managerEval && isCompleted(managerEval.status) && managerItem?.comment ? (
-                                  managerItem.comment
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </td>
+                              {canViewComment && (
+                                <td className="border px-1 py-0.5 text-[10px] bg-green-50">
+                                  {managerEval && isCompleted(managerEval.status) && managerItem?.comment ? (
+                                    managerItem.comment
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              )}
                               {/* MG評価 */}
                               <td className="border px-1 py-0.5 text-center bg-purple-50">
                                 {mgEval && isCompleted(mgEval.status) && mgItem ? (
@@ -1367,13 +1383,15 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border px-1 py-0.5 text-[10px] bg-purple-50">
-                                {mgEval && isCompleted(mgEval.status) && mgItem?.comment ? (
-                                  mgItem.comment
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </td>
+                              {canViewComment && (
+                                <td className="border px-1 py-0.5 text-[10px] bg-purple-50">
+                                  {mgEval && isCompleted(mgEval.status) && mgItem?.comment ? (
+                                    mgItem.comment
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              )}
                               {/* 最終評価 */}
                               <td className="border px-1 py-0.5 text-center bg-red-50">
                                 {finalEval && isCompleted(finalEval.status) && finalItem ? (
@@ -1391,13 +1409,15 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                                   <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </td>
-                              <td className="border px-1 py-0.5 text-[10px] bg-red-50">
-                                {finalEval && isCompleted(finalEval.status) && finalItem?.comment ? (
-                                  finalItem.comment
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </td>
+                              {canViewComment && (
+                                <td className="border px-1 py-0.5 text-[10px] bg-red-50">
+                                  {finalEval && isCompleted(finalEval.status) && finalItem?.comment ? (
+                                    finalItem.comment
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           )
                         })}
@@ -1428,7 +1448,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                 )}
 
                 {/* 総評コメント表示（管理者・MGのみ） */}
-                {canViewOverallComment && finalEval && isCompleted(finalEval.status) && finalEval.overall_comment && (
+                {canViewComment && finalEval && isCompleted(finalEval.status) && finalEval.overall_comment && (
                   <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
                     <h3 className="text-lg font-semibold text-red-900 mb-2">総評コメント</h3>
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{finalEval.overall_comment}</p>

@@ -1,6 +1,15 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
+function escapeHTML(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 export type EvaluationPDFData = {
   evaluatee: string
   department: string
@@ -26,6 +35,8 @@ export type EvaluationPDFData = {
 }
 
 export async function generateEvaluationPDF(data: EvaluationPDFData) {
+  if (data.evaluations.length === 0) return
+
   const doc = new jsPDF('p', 'mm', 'a4')
   await (document as any).fonts?.ready
 
@@ -42,6 +53,8 @@ export async function generateEvaluationPDF(data: EvaluationPDFData) {
 }
 
 export async function generateMultipleEvaluationsPDF(evaluationsData: EvaluationPDFData[]) {
+  if (evaluationsData.length === 0) return
+
   const doc = new jsPDF('p', 'mm', 'a4')
   await (document as any).fonts?.ready
 
@@ -63,7 +76,7 @@ export async function generateMultipleEvaluationsPDF(evaluationsData: Evaluation
   doc.save(fileName)
 }
 
-// NOTE: innerHTML使用はPDF生成用の内部データのみ（ユーザー入力はサニタイズ済み）
+// NOTE: innerHTML使用はPDF生成用の内部データのみ（エスケープ処理済み）
 function buildEvaluationHTML(
   evaluation: EvaluationPDFData['evaluations'][0],
   evaluatee: string,
@@ -92,13 +105,13 @@ function buildEvaluationHTML(
         ${evaluation.items.map((item, i) => `
           <tr style="background: ${i % 2 === 0 ? '#f8fafc' : 'white'};">
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${fontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; font-weight: 500;">
-              ${item.name}
+              ${escapeHTML(item.name)}
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; font-size: ${smallFontSize}; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; color: #475569;">
-              ${item.description || '-'}
+              ${item.description ? escapeHTML(item.description) : '-'}
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; font-size: ${scoreFontSize}; color: #1e293b; vertical-align: top;">
-              ${item.grade === 'HOLD' ? '<span style="color:#f97316;">保留</span>' : item.grade || '-'}
+              ${item.grade === 'HOLD' ? '<span style="color:#f97316;">保留</span>' : item.grade ? escapeHTML(item.grade) : '-'}
             </td>
             <td style="padding: ${cellPadding}; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; font-size: ${scoreFontSize}; color: #2563eb; vertical-align: top;">
               ${item.grade === 'HOLD' ? '-' : item.score || 0}
@@ -112,7 +125,7 @@ function buildEvaluationHTML(
   const overallCommentHTML = evaluation.overall_comment ? `
     <div style="margin-top: 5px; padding: 5px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px;">
       <strong style="font-size: 9px; color: #991b1b;">総評:</strong>
-      <span style="font-size: 8.5px; color: #1f2937;"> ${evaluation.overall_comment}</span>
+      <span style="font-size: 8.5px; color: #1f2937;"> ${escapeHTML(evaluation.overall_comment)}</span>
     </div>
   ` : ''
 
@@ -121,14 +134,14 @@ function buildEvaluationHTML(
       <div style="background: #1e40af; color: white; padding: 8px 14px; border-radius: 4px 4px 0 0;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-size: 14px; font-weight: bold;">${evaluatee}（${department}）</div>
-            <div style="font-size: 9px; margin-top: 3px; opacity: 0.85;">${period} | ${evaluation.submittedAt}</div>
+            <div style="font-size: 14px; font-weight: bold;">${escapeHTML(evaluatee)}（${escapeHTML(department)}）</div>
+            <div style="font-size: 9px; margin-top: 3px; opacity: 0.85;">${escapeHTML(period)} | ${escapeHTML(evaluation.submittedAt)}</div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 10px; opacity: 0.85;">${evaluation.stage}</div>
+            <div style="font-size: 10px; opacity: 0.85;">${escapeHTML(evaluation.stage)}</div>
             <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">${evaluation.totalScore.toFixed(1)}<span style="font-size: 12px; margin-left: 2px;">点</span></div>
-            ${evaluation.final_decision ? `<div style="font-size: 26px; font-weight: bold; letter-spacing: 2px; margin-top: 2px;"><span style="font-size: 11px; opacity: 0.85; margin-right: 4px;">最終決定</span>${evaluation.final_decision}</div>` : ''}
-            ${evaluation.overall_grade ? `<div style="font-size: 16px; font-weight: bold; opacity: 0.9; margin-top: 1px;"><span style="font-size: 10px; opacity: 0.85; margin-right: 4px;">総合評価</span>${evaluation.overall_grade}</div>` : ''}
+            ${evaluation.final_decision ? `<div style="font-size: 26px; font-weight: bold; letter-spacing: 2px; margin-top: 2px;"><span style="font-size: 11px; opacity: 0.85; margin-right: 4px;">最終決定</span>${escapeHTML(evaluation.final_decision)}</div>` : ''}
+            ${evaluation.overall_grade ? `<div style="font-size: 16px; font-weight: bold; opacity: 0.9; margin-top: 1px;"><span style="font-size: 10px; opacity: 0.85; margin-right: 4px;">総合評価</span>${escapeHTML(evaluation.overall_grade)}</div>` : ''}
           </div>
         </div>
       </div>
@@ -263,7 +276,7 @@ async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
 
   const widthPx = 800
   const tempDiv = document.createElement('div')
-  tempDiv.id = 'pdf-temp-root'
+  tempDiv.id = 'pdf-temp-root-' + Math.random().toString(36).substr(2, 9)
   tempDiv.innerHTML = htmlContent
   tempDiv.style.position = 'absolute'
   tempDiv.style.left = '-9999px'
@@ -289,7 +302,7 @@ async function createPDFFromHTML(htmlContent: string): Promise<jsPDF> {
       scrollX: 0,
       scrollY: 0,
       onclone: (clonedDoc) => {
-        const el = clonedDoc.body.querySelector('#pdf-temp-root') as HTMLElement | null
+        const el = clonedDoc.body.querySelector(`#${tempDiv.id}`) as HTMLElement | null
         if (el) {
           el.style.width = `${widthPx}px`
           el.style.overflow = 'visible'
@@ -336,10 +349,10 @@ export async function generateRankingPDF(data: RankingPDFData) {
           ${entry.rank}
         </td>
         <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: 500;">
-          ${entry.name}
+          ${escapeHTML(entry.name)}
         </td>
         <td style="padding: 12px; border: 1px solid #e5e7eb; color: #6b7280;">
-          ${entry.department}
+          ${escapeHTML(entry.department)}
         </td>
         <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: right;">
           <span style="font-size: 20px; font-weight: bold; color: #2563eb;">
@@ -360,8 +373,8 @@ export async function generateRankingPDF(data: RankingPDFData) {
       </h1>
 
       <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #2563eb;">
-        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${data.periodName}</p>
-        <p style="margin: 8px 0; font-size: 15px;"><strong>期間:</strong> ${data.periodDates}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>評価期間:</strong> ${escapeHTML(data.periodName)}</p>
+        <p style="margin: 8px 0; font-size: 15px;"><strong>期間:</strong> ${escapeHTML(data.periodDates)}</p>
         <p style="margin: 8px 0; font-size: 15px;"><strong>対象者数:</strong> ${data.rankings.length}名</p>
       </div>
 

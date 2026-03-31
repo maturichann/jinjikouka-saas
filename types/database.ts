@@ -1,23 +1,27 @@
-export type UserRole = 'admin' | 'manager' | 'employee'
+export type UserRole = 'admin' | 'mg' | 'manager' | 'staff'
 
-export type EvaluationStage = 'self' | 'manager' | 'mg'
+export type UserRank = 'S' | 'J' | 'M' | null
 
-export type EvaluationStatus = 'pending' | 'in_progress' | 'submitted'
+export type UserStatus = 'active' | 'on_leave' | 'retired'
+
+export type EvaluationStage = 'self' | 'manager' | 'mg' | 'final'
+
+export type EvaluationStatus = 'pending' | 'in_progress' | 'submitted' | 'confirmed'
 
 export type PeriodStatus = 'draft' | 'active' | 'completed'
 
-export type PermissionType = 'view' | 'edit'
-
-export interface Profile {
+export interface User {
   id: string
-  email: string
-  full_name: string
-  department: string | null
-  position: string | null
-  manager_id: string | null
+  staff_code: string
+  name: string
   role: UserRole
+  department: string
+  password_hash: string
+  rank: UserRank
+  status: UserStatus
+  managed_departments: string[]
+  skip_manager_evaluation: boolean
   created_at: string
-  updated_at: string
 }
 
 export interface EvaluationTemplate {
@@ -36,7 +40,7 @@ export interface EvaluationItem {
   name: string
   description: string | null
   weight: number
-  criteria: string | null // 採点基準
+  criteria: string | null
   order_index: number
   created_at: string
   updated_at: string
@@ -49,6 +53,7 @@ export interface EvaluationPeriod {
   end_date: string
   template_id: string
   status: PeriodStatus
+  period_summary: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -61,6 +66,9 @@ export interface Evaluation {
   evaluator_id: string | null
   stage: EvaluationStage
   status: EvaluationStatus
+  overall_comment: string | null
+  overall_grade: string | null
+  final_decision: string | null
   submitted_at: string | null
   created_at: string
   updated_at: string
@@ -70,24 +78,23 @@ export interface EvaluationScore {
   id: string
   evaluation_id: string
   item_id: string
-  score: number // 1-5
+  score: number
   comment: string | null
+  grade: string | null
   created_at: string
   updated_at: string
 }
 
-export interface EvaluationPermission {
-  id: string
-  user_id: string
-  evaluation_id: string
-  permission_type: PermissionType
-  created_at: string
+export interface RankingMemo {
+  period_id: string
+  memo: string | null
+  created_by: string
+  updated_at: string
 }
 
-// Extended types with relations
 export interface EvaluationWithDetails extends Evaluation {
-  evaluatee: Profile
-  evaluator: Profile | null
+  evaluatee: User
+  evaluator: User | null
   period: EvaluationPeriod
   scores: (EvaluationScore & { item: EvaluationItem })[]
 }

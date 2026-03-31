@@ -77,6 +77,7 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     const supabase = supabaseRef.current
     if (!supabase) return
+    if (!user || !canManageUsers(user.role)) return
 
     try {
       const { data, error } = await supabase
@@ -101,7 +102,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     fetchUsers()
