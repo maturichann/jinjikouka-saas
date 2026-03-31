@@ -27,4 +27,7 @@ CREATE TRIGGER set_users_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
--- 初期管理者アカウントはSupabaseダッシュボードから手動で作成してください
+-- 初期管理者アカウントの作成
+INSERT INTO public.users (email, name, role, department, password_hash)
+VALUES ('belsia.yokota@gmail.com', '管理者', 'admin', '本社', 'admin123')
+ON CONFLICT (email) DO NOTHING;

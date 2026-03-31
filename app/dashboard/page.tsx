@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
@@ -75,11 +75,16 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/results">
-              <Button variant="outline" className="w-full">
-                評価一覧で確認
-              </Button>
-            </Link>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">進行中の評価</span>
+                <span className="font-semibold">0件</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">完了した評価</span>
+                <span className="font-semibold">0件</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

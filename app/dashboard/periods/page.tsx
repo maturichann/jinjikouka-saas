@@ -249,8 +249,7 @@ export default function PeriodsPage() {
           name: editingPeriod.name,
           start_date: editingPeriod.start_date,
           end_date: editingPeriod.end_date,
-          status: editingPeriod.status,
-          period_summary: editingPeriod.period_summary || null
+          status: editingPeriod.status
         })
         .eq('id', editingPeriod.id)
 
@@ -328,21 +327,13 @@ export default function PeriodsPage() {
         return
       }
 
-      // 期間ステータスを completed に更新（activeの場合のみ更新 = 楽観ロック）
-      const { data: updateResult, error } = await supabase
+      // 期間ステータスを completed に更新
+      const { error } = await supabase
         .from('evaluation_periods')
         .update({ status: 'completed' })
         .eq('id', period.id)
-        .eq('status', 'active')
-        .select()
 
       if (error) throw error
-
-      if (!updateResult || updateResult.length === 0) {
-        alert('この期間は既に別の管理者によって更新されています。画面を再読み込みしてください。')
-        fetchPeriods()
-        return
-      }
 
       alert('評価期間を確定しました')
       fetchPeriods()
@@ -475,33 +466,9 @@ export default function PeriodsPage() {
 
       console.log('挿入する評価データ:', evaluationsToCreate)
 
-      // 既存の割り当てを事前チェック
-      const { data: existingEvals } = await supabase
-        .from('evaluations')
-        .select('evaluatee_id, stage')
-        .eq('period_id', selectedPeriodForAssignment.id)
-        .in('evaluatee_id', selectedUserIds)
-
-      const existingSet = new Set((existingEvals || []).map(e => `${e.evaluatee_id}_${e.stage}`))
-      const newEvaluations = evaluationsToCreate.filter(
-        e => !existingSet.has(`${e.evaluatee_id}_${e.stage}`)
-      )
-
-      // 既にスキップされたユーザーを特定
-      const skippedUserIds = new Set(
-        evaluationsToCreate
-          .filter(e => existingSet.has(`${e.evaluatee_id}_${e.stage}`))
-          .map(e => e.evaluatee_id)
-      )
-
-      if (newEvaluations.length === 0) {
-        alert('選択されたユーザーは全員既に割り当て済みです')
-        return
-      }
-
       const { data, error } = await supabase
         .from('evaluations')
-        .insert(newEvaluations)
+        .insert(evaluationsToCreate)
         .select()
 
       if (error) {
@@ -516,19 +483,15 @@ export default function PeriodsPage() {
 
       console.log('評価の作成成功:', data)
 
-      const newCount = new Set(newEvaluations.map(e => e.evaluatee_id)).size
-      const skipCount = skippedUserIds.size
-      const message = skipCount > 0
-        ? `${newCount}人に評価を割り当てました（${skipCount}人は既に割り当て済みのためスキップ）`
-        : `${newCount}人のユーザーに評価を割り当てました`
-
-      alert(message)
+      alert(`${selectedUserIds.length}人のユーザーに評価を割り当てました`)
       setIsAssignDialogOpen(false)
       setSelectedPeriodForAssignment(null)
       setSelectedUserIds([])
     } catch (error: any) {
       console.error('評価の割り当てエラー:', error)
-      if (error.code === '23503') {
+      if (error.code === '23505') {
+        alert('一部のユーザーには既に評価が割り当てられています')
+      } else if (error.code === '23503') {
         alert('データベース制約エラー: 選択されたユーザーまたは評価期間が無効です\n詳細: ' + error.message)
       } else {
         alert('評価の割り当てに失敗しました\nエラー: ' + (error.message || 'Unknown error'))
