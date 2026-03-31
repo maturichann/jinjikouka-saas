@@ -1037,7 +1037,7 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                       </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         {/* 本人評価 */}
                         <Card>
                           <CardHeader>
@@ -1112,24 +1112,62 @@ ADD COLUMN IF NOT EXISTS grade_criteria jsonb DEFAULT '{"A": "", "B": "", "C": "
                             )}
                           </CardContent>
                         </Card>
+
+                        {/* 最終評価 */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">最終評価</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {finalEval && isCompleted(finalEval.status) ? (
+                              <>
+                                <p className="text-3xl font-bold text-red-600">
+                                  {finalEval.totalScore.toFixed(1)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {finalEval.submittedAt}
+                                </p>
+                                <Badge variant="destructive" className="mt-2">
+                                  {finalEval.status === 'confirmed' ? '確定済み' : '提出済み'}
+                                </Badge>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-3xl font-bold text-gray-300">-</p>
+                                <Badge variant="outline" className="mt-2">未提出</Badge>
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
                       </div>
 
                       {/* 進捗バー */}
                       <div className="mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">評価進捗</span>
-                          <span className="text-sm text-gray-600">
-                            {personEvals.filter(e => isCompleted(e.status)).length} / 3
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{
-                              width: `${(personEvals.filter(e => isCompleted(e.status)).length / 3) * 100}%`
-                            }}
-                          />
-                        </div>
+                        {(() => {
+                          const totalStages = ['self', 'manager', 'mg', 'final'].filter(stage =>
+                            personEvals.some(e => e.stage === stage)
+                          ).length || 4
+                          const completedCount = personEvals.filter(e => isCompleted(e.status)).length
+
+                          return (
+                            <>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">評価進捗</span>
+                                <span className="text-sm text-gray-600">
+                                  {completedCount} / {totalStages}
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full"
+                                  style={{
+                                    width: `${(completedCount / totalStages) * 100}%`
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
